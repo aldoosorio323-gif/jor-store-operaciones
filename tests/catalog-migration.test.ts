@@ -38,6 +38,27 @@ describe("migración de catálogos", () => {
     expect(migration).toContain("almacén con ubicaciones activas");
   });
 
+  it("protege el identificador estable de las cinco tablas", () => {
+    const prepareWrite = migration.match(
+      /create or replace function private\.prepare_catalog_write\(\)[\s\S]*?\$\$;\s*\n/,
+    )?.[0] ?? "";
+    expect(prepareWrite).toContain("new.id is distinct from old.id");
+    expect(prepareWrite).toContain("No se puede cambiar el identificador del registro.");
+    expect(prepareWrite).toContain("new.created_at := old.created_at");
+    expect(prepareWrite).toContain("new.created_by := old.created_by");
+    expect(prepareWrite).toContain("new.updated_at := now()");
+    expect(prepareWrite).toContain("new.updated_by := actor_id");
+
+    for (const table of tables) {
+      expect(migration).toMatch(
+        new RegExp(
+          `create trigger [a-z_]+_prepare_write before insert or update on public\\.${table}\\s+for each row execute function private\\.prepare_catalog_write\\(\\)`,
+        ),
+      );
+      expect(sqlChecks).toContain(`update public.${table} set id = gen_random_uuid()`);
+    }
+  });
+
   it("protege auditoría y registra todas las acciones solicitadas", () => {
     expect(migration).toContain("new.created_by := actor_id");
     expect(migration).toContain("new.updated_by := actor_id");

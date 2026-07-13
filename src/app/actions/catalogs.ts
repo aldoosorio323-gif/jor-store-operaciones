@@ -33,6 +33,18 @@ function databaseMessage(error: { code?: string; message: string }, entity: stri
   return `No fue posible guardar ${entity}.`;
 }
 
+function mutationMessage(error: { code?: string; message: string }, entity: string): string {
+  if (
+    error.code === "PGRST116" ||
+    error.code === "42501" ||
+    error.message.includes("0 rows") ||
+    error.message.includes("no rows")
+  ) {
+    return "Registro no encontrado o no autorizado.";
+  }
+  return databaseMessage(error, entity);
+}
+
 export async function saveProductAction(id: string | null, input: unknown): Promise<ActionResult> {
   const parsed = productSchema.safeParse(input);
   const parsedId = id === null ? null : catalogEntityIdSchema.safeParse({ id });
@@ -42,18 +54,17 @@ export async function saveProductAction(id: string | null, input: unknown): Prom
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const values = {
+    const updateValues = {
       name: parsed.data.name,
       description: parsed.data.description,
       brand: parsed.data.brand,
       category: parsed.data.category,
       unit_code: parsed.data.unitCode,
-      is_active: parsed.data.isActive,
     };
     const result = parsedId
-      ? await supabase.from("products").update(values).eq("id", parsedId.data.id).select("id").single()
-      : await supabase.from("products").insert(values).select("id").single();
-    if (result.error) return invalid(databaseMessage(result.error, "el producto"));
+      ? await supabase.from("products").update(updateValues).eq("id", parsedId.data.id).select("id").single()
+      : await supabase.from("products").insert({ ...updateValues, is_active: parsed.data.isActive }).select("id").single();
+    if (result.error) return invalid(mutationMessage(result.error, "el producto"));
     revalidatePath("/app/productos");
     revalidatePath(`/app/productos/${result.data.id}`);
     return {
@@ -72,8 +83,13 @@ export async function setProductStatusAction(input: unknown): Promise<ActionResu
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const { error } = await supabase.from("products").update({ is_active: parsed.data.isActive }).eq("id", parsed.data.id);
-    if (error) return invalid(databaseMessage(error, "el producto"));
+    const { error } = await supabase
+      .from("products")
+      .update({ is_active: parsed.data.isActive })
+      .eq("id", parsed.data.id)
+      .select("id")
+      .single();
+    if (error) return invalid(mutationMessage(error, "el producto"));
     revalidatePath("/app/productos");
     revalidatePath(`/app/productos/${parsed.data.id}`);
     return { ok: true, message: parsed.data.isActive ? "Producto activado." : "Producto desactivado." };
@@ -90,7 +106,7 @@ export async function saveVariantAction(id: string | null, input: unknown): Prom
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const values = {
+    const updateValues = {
       product_id: parsed.data.productId,
       sku: parsed.data.sku,
       name: parsed.data.name,
@@ -98,13 +114,12 @@ export async function saveVariantAction(id: string | null, input: unknown): Prom
       attributes: parsed.data.attributes,
       barcode: parsed.data.barcode,
       sale_price: parsed.data.salePrice,
-      is_active: parsed.data.isActive,
     };
     const result = parsedId
-      ? await supabase.from("product_variants").update(values).eq("id", parsedId.data.id)
-      : await supabase.from("product_variants").insert(values);
-    if (result.error) return invalid(databaseMessage(result.error, "la variante"));
-    revalidatePath(`/app/productos/${parsed.data.productId}`);
+      ? await supabase.from("product_variants").update(updateValues).eq("id", parsedId.data.id).select("id, product_id").single()
+      : await supabase.from("product_variants").insert({ ...updateValues, is_active: parsed.data.isActive }).select("id, product_id").single();
+    if (result.error) return invalid(mutationMessage(result.error, "la variante"));
+    revalidatePath(`/app/productos/${result.data.product_id}`);
     revalidatePath("/app/productos");
     return { ok: true, message: parsedId ? "Variante actualizada." : "Variante creada." };
   } catch {
@@ -124,7 +139,7 @@ export async function setVariantStatusAction(input: unknown): Promise<ActionResu
       .eq("id", parsed.data.id)
       .select("product_id")
       .single();
-    if (error) return invalid(databaseMessage(error, "la variante"));
+    if (error) return invalid(mutationMessage(error, "la variante"));
     revalidatePath(`/app/productos/${data.product_id}`);
     return { ok: true, message: parsed.data.isActive ? "Variante activada." : "Variante desactivada." };
   } catch {
@@ -140,17 +155,16 @@ export async function saveWarehouseAction(id: string | null, input: unknown): Pr
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const values = {
+    const updateValues = {
       code: parsed.data.code,
       name: parsed.data.name,
       description: parsed.data.description,
       address: parsed.data.address,
-      is_active: parsed.data.isActive,
     };
     const result = parsedId
-      ? await supabase.from("warehouses").update(values).eq("id", parsedId.data.id).select("id").single()
-      : await supabase.from("warehouses").insert(values).select("id").single();
-    if (result.error) return invalid(databaseMessage(result.error, "el almacén"));
+      ? await supabase.from("warehouses").update(updateValues).eq("id", parsedId.data.id).select("id").single()
+      : await supabase.from("warehouses").insert({ ...updateValues, is_active: parsed.data.isActive }).select("id").single();
+    if (result.error) return invalid(mutationMessage(result.error, "el almacén"));
     revalidatePath("/app/almacenes");
     revalidatePath(`/app/almacenes/${result.data.id}`);
     return {
@@ -169,8 +183,13 @@ export async function setWarehouseStatusAction(input: unknown): Promise<ActionRe
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const { error } = await supabase.from("warehouses").update({ is_active: parsed.data.isActive }).eq("id", parsed.data.id);
-    if (error) return invalid(databaseMessage(error, "el almacén"));
+    const { error } = await supabase
+      .from("warehouses")
+      .update({ is_active: parsed.data.isActive })
+      .eq("id", parsed.data.id)
+      .select("id")
+      .single();
+    if (error) return invalid(mutationMessage(error, "el almacén"));
     revalidatePath("/app/almacenes");
     revalidatePath(`/app/almacenes/${parsed.data.id}`);
     return { ok: true, message: parsed.data.isActive ? "Almacén activado." : "Almacén desactivado." };
@@ -187,18 +206,17 @@ export async function saveLocationAction(id: string | null, input: unknown): Pro
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const values = {
+    const updateValues = {
       warehouse_id: parsed.data.warehouseId,
       code: parsed.data.code,
       name: parsed.data.name,
       location_type: parsed.data.locationType,
-      is_active: parsed.data.isActive,
     };
     const result = parsedId
-      ? await supabase.from("warehouse_locations").update(values).eq("id", parsedId.data.id)
-      : await supabase.from("warehouse_locations").insert(values);
-    if (result.error) return invalid(databaseMessage(result.error, "la ubicación"));
-    revalidatePath(`/app/almacenes/${parsed.data.warehouseId}`);
+      ? await supabase.from("warehouse_locations").update(updateValues).eq("id", parsedId.data.id).select("id, warehouse_id").single()
+      : await supabase.from("warehouse_locations").insert({ ...updateValues, is_active: parsed.data.isActive }).select("id, warehouse_id").single();
+    if (result.error) return invalid(mutationMessage(result.error, "la ubicación"));
+    revalidatePath(`/app/almacenes/${result.data.warehouse_id}`);
     return { ok: true, message: parsedId ? "Ubicación actualizada." : "Ubicación creada." };
   } catch {
     return invalid("No fue posible guardar la ubicación.");
@@ -217,7 +235,7 @@ export async function setLocationStatusAction(input: unknown): Promise<ActionRes
       .eq("id", parsed.data.id)
       .select("warehouse_id")
       .single();
-    if (error) return invalid(databaseMessage(error, "la ubicación"));
+    if (error) return invalid(mutationMessage(error, "la ubicación"));
     revalidatePath(`/app/almacenes/${data.warehouse_id}`);
     return { ok: true, message: parsed.data.isActive ? "Ubicación activada." : "Ubicación desactivada." };
   } catch {
@@ -233,7 +251,7 @@ export async function saveSupplierAction(id: string | null, input: unknown): Pro
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const values = {
+    const updateValues = {
       code: parsed.data.code,
       business_name: parsed.data.businessName,
       tax_id: parsed.data.taxId,
@@ -241,12 +259,11 @@ export async function saveSupplierAction(id: string | null, input: unknown): Pro
       email: parsed.data.email,
       phone: parsed.data.phone,
       notes: parsed.data.notes,
-      is_active: parsed.data.isActive,
     };
     const result = parsedId
-      ? await supabase.from("suppliers").update(values).eq("id", parsedId.data.id).select("id").single()
-      : await supabase.from("suppliers").insert(values).select("id").single();
-    if (result.error) return invalid(databaseMessage(result.error, "el proveedor"));
+      ? await supabase.from("suppliers").update(updateValues).eq("id", parsedId.data.id).select("id").single()
+      : await supabase.from("suppliers").insert({ ...updateValues, is_active: parsed.data.isActive }).select("id").single();
+    if (result.error) return invalid(mutationMessage(result.error, "el proveedor"));
     revalidatePath("/app/proveedores");
     revalidatePath(`/app/proveedores/${result.data.id}`);
     return {
@@ -265,8 +282,13 @@ export async function setSupplierStatusAction(input: unknown): Promise<ActionRes
   try {
     const supabase = await getAdministratorClient();
     if (!supabase) return invalid("Acción no autorizada.");
-    const { error } = await supabase.from("suppliers").update({ is_active: parsed.data.isActive }).eq("id", parsed.data.id);
-    if (error) return invalid(databaseMessage(error, "el proveedor"));
+    const { error } = await supabase
+      .from("suppliers")
+      .update({ is_active: parsed.data.isActive })
+      .eq("id", parsed.data.id)
+      .select("id")
+      .single();
+    if (error) return invalid(mutationMessage(error, "el proveedor"));
     revalidatePath("/app/proveedores");
     revalidatePath(`/app/proveedores/${parsed.data.id}`);
     return { ok: true, message: parsed.data.isActive ? "Proveedor activado." : "Proveedor desactivado." };

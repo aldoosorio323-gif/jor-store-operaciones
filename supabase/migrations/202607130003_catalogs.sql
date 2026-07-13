@@ -168,6 +168,11 @@ begin
     new.created_at := now();
     new.created_by := actor_id;
   else
+    if new.id is distinct from old.id then
+      raise exception 'No se puede cambiar el identificador del registro.'
+        using errcode = '23514';
+    end if;
+
     new.created_at := old.created_at;
     new.created_by := old.created_by;
   end if;

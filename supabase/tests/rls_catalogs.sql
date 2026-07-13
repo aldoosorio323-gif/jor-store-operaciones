@@ -138,6 +138,56 @@ values ('PROV-FIC-002', 'Proveedor duplicado ficticio', 'TAX-FICTICIO-001');
 \endif
 release savepoint duplicate_tax_id;
 
+savepoint immutable_products_id;
+update public.products set id = gen_random_uuid() where id = :'product_id'::uuid;
+\if :ERROR
+  rollback to savepoint immutable_products_id;
+\else
+  \echo 'FALLO: se permitió cambiar el id de un producto.'
+  \quit 1
+\endif
+release savepoint immutable_products_id;
+
+savepoint immutable_product_variants_id;
+update public.product_variants set id = gen_random_uuid() where id = :'variant_id'::uuid;
+\if :ERROR
+  rollback to savepoint immutable_product_variants_id;
+\else
+  \echo 'FALLO: se permitió cambiar el id de una variante.'
+  \quit 1
+\endif
+release savepoint immutable_product_variants_id;
+
+savepoint immutable_warehouses_id;
+update public.warehouses set id = gen_random_uuid() where id = :'warehouse_a_id'::uuid;
+\if :ERROR
+  rollback to savepoint immutable_warehouses_id;
+\else
+  \echo 'FALLO: se permitió cambiar el id de un almacén.'
+  \quit 1
+\endif
+release savepoint immutable_warehouses_id;
+
+savepoint immutable_warehouse_locations_id;
+update public.warehouse_locations set id = gen_random_uuid() where id = :'location_a_id'::uuid;
+\if :ERROR
+  rollback to savepoint immutable_warehouse_locations_id;
+\else
+  \echo 'FALLO: se permitió cambiar el id de una ubicación.'
+  \quit 1
+\endif
+release savepoint immutable_warehouse_locations_id;
+
+savepoint immutable_suppliers_id;
+update public.suppliers set id = gen_random_uuid() where id = :'supplier_id'::uuid;
+\if :ERROR
+  rollback to savepoint immutable_suppliers_id;
+\else
+  \echo 'FALLO: se permitió cambiar el id de un proveedor.'
+  \quit 1
+\endif
+release savepoint immutable_suppliers_id;
+
 savepoint immutable_product;
 update public.product_variants set product_id = gen_random_uuid() where id = :'variant_id'::uuid;
 \if :ERROR

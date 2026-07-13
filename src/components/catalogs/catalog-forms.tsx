@@ -61,7 +61,7 @@ function useResult() {
   return { pending, result, setResult, run };
 }
 
-type ProductValues = z.infer<typeof productSchema>;
+type ProductValues = Omit<z.input<typeof productSchema>, "isActive">;
 
 export function ProductForm({ product }: { product?: ProductDetail }) {
   const state = useResult();
@@ -72,13 +72,15 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
       brand: product?.brand ?? "",
       category: product?.category ?? "",
       unitCode: product?.unitCode ?? "UND",
-      isActive: product?.isActive ?? true,
     },
   });
 
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
-      const parsed = productSchema.safeParse(values);
+      const parsed = productSchema.safeParse({
+        ...values,
+        isActive: product?.isActive ?? true,
+      });
       if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
       state.run(() => saveProductAction(product?.id ?? null, parsed.data));
     })}>
@@ -87,9 +89,6 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
       <Field label="Marca"><input {...register("brand")} className={inputClass} /></Field>
       <Field label="Categoría"><input {...register("category")} className={inputClass} /></Field>
       <Field label="Descripción" wide><textarea {...register("description")} rows={3} className={inputClass} /></Field>
-      <label className="flex items-center gap-3 rounded-xl bg-neutral-100 px-4 py-3 text-sm font-medium sm:col-span-2">
-        <input type="checkbox" {...register("isActive")} /> Activo
-      </label>
       <div className="sm:col-span-2"><Message value={state.result.message} ok={state.result.ok} /></div>
       <button disabled={state.pending} className={`${buttonClass} sm:col-span-2`}>
         {state.pending ? "Guardando…" : product ? "Guardar producto" : "Crear producto"}
@@ -98,7 +97,7 @@ export function ProductForm({ product }: { product?: ProductDetail }) {
   );
 }
 
-type WarehouseValues = z.infer<typeof warehouseSchema>;
+type WarehouseValues = Omit<z.input<typeof warehouseSchema>, "isActive">;
 
 export function WarehouseForm({ warehouse }: { warehouse?: WarehouseListItem }) {
   const state = useResult();
@@ -108,12 +107,14 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseListItem }) 
       name: warehouse?.name ?? "",
       description: warehouse?.description ?? "",
       address: warehouse?.address ?? "",
-      isActive: warehouse?.isActive ?? true,
     },
   });
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
-      const parsed = warehouseSchema.safeParse(values);
+      const parsed = warehouseSchema.safeParse({
+        ...values,
+        isActive: warehouse?.isActive ?? true,
+      });
       if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
       state.run(() => saveWarehouseAction(warehouse?.id ?? null, parsed.data));
     })}>
@@ -121,9 +122,6 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseListItem }) 
       <Field label="Nombre"><input {...register("name")} required className={inputClass} /></Field>
       <Field label="Descripción" wide><textarea {...register("description")} rows={3} className={inputClass} /></Field>
       <Field label="Dirección" wide><textarea {...register("address")} rows={2} className={inputClass} /></Field>
-      <label className="flex items-center gap-3 rounded-xl bg-neutral-100 px-4 py-3 text-sm font-medium sm:col-span-2">
-        <input type="checkbox" {...register("isActive")} /> Activo
-      </label>
       <div className="sm:col-span-2"><Message value={state.result.message} ok={state.result.ok} /></div>
       <button disabled={state.pending} className={`${buttonClass} sm:col-span-2`}>
         {state.pending ? "Guardando…" : warehouse ? "Guardar almacén" : "Crear almacén"}
@@ -132,7 +130,7 @@ export function WarehouseForm({ warehouse }: { warehouse?: WarehouseListItem }) 
   );
 }
 
-type SupplierValues = z.infer<typeof supplierSchema>;
+type SupplierValues = Omit<z.input<typeof supplierSchema>, "isActive">;
 
 export function SupplierForm({ supplier }: { supplier?: SupplierListItem }) {
   const state = useResult();
@@ -145,12 +143,14 @@ export function SupplierForm({ supplier }: { supplier?: SupplierListItem }) {
       email: supplier?.email ?? "",
       phone: supplier?.phone ?? "",
       notes: supplier?.notes ?? "",
-      isActive: supplier?.isActive ?? true,
     },
   });
   return (
     <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
-      const parsed = supplierSchema.safeParse(values);
+      const parsed = supplierSchema.safeParse({
+        ...values,
+        isActive: supplier?.isActive ?? true,
+      });
       if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
       state.run(() => saveSupplierAction(supplier?.id ?? null, parsed.data));
     })}>
@@ -161,9 +161,6 @@ export function SupplierForm({ supplier }: { supplier?: SupplierListItem }) {
       <Field label="Correo"><input {...register("email")} type="email" autoComplete="off" className={inputClass} /></Field>
       <Field label="Teléfono"><input {...register("phone")} type="tel" autoComplete="off" className={inputClass} /></Field>
       <Field label="Notas" wide><textarea {...register("notes")} rows={3} className={inputClass} /></Field>
-      <label className="flex items-center gap-3 rounded-xl bg-neutral-100 px-4 py-3 text-sm font-medium sm:col-span-2">
-        <input type="checkbox" {...register("isActive")} /> Activo
-      </label>
       <div className="sm:col-span-2"><Message value={state.result.message} ok={state.result.ok} /></div>
       <button disabled={state.pending} className={`${buttonClass} sm:col-span-2`}>
         {state.pending ? "Guardando…" : supplier ? "Guardar proveedor" : "Crear proveedor"}
@@ -174,7 +171,7 @@ export function SupplierForm({ supplier }: { supplier?: SupplierListItem }) {
 
 type VariantValues = {
   sku: string; name: string; color: string; barcode: string; salePrice: number;
-  attributesText: string; isActive: boolean;
+  attributesText: string;
 };
 
 export function VariantForm({ productId, variant }: { productId: string; variant?: ProductVariant }) {
@@ -183,7 +180,7 @@ export function VariantForm({ productId, variant }: { productId: string; variant
     defaultValues: {
       sku: variant?.sku ?? "", name: variant?.name ?? "", color: variant?.color ?? "",
       barcode: variant?.barcode ?? "", salePrice: variant?.salePrice ?? 0,
-      attributesText: JSON.stringify(variant?.attributes ?? {}, null, 2), isActive: variant?.isActive ?? true,
+      attributesText: JSON.stringify(variant?.attributes ?? {}, null, 2),
     },
   });
   return (
@@ -198,13 +195,13 @@ export function VariantForm({ productId, variant }: { productId: string; variant
         color: values.color,
         barcode: values.barcode,
         salePrice: values.salePrice,
-        isActive: values.isActive,
+        isActive: variant?.isActive ?? true,
         attributes,
       });
       if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
       state.run(async () => {
         const result = await saveVariantAction(variant?.id ?? null, parsed.data);
-        if (result.ok && !variant) reset({ sku: "", name: "", color: "", barcode: "", salePrice: 0, attributesText: "{}", isActive: true });
+        if (result.ok && !variant) reset({ sku: "", name: "", color: "", barcode: "", salePrice: 0, attributesText: "{}" });
         return result;
       });
     })}>
@@ -214,9 +211,6 @@ export function VariantForm({ productId, variant }: { productId: string; variant
       <Field label="Código de barras"><input {...register("barcode")} className={inputClass} /></Field>
       <Field label="Precio de venta"><input {...register("salePrice", { valueAsNumber: true })} type="number" min="0" step="0.01" required className={inputClass} /></Field>
       <Field label="Atributos JSON"><textarea {...register("attributesText")} rows={3} className={`${inputClass} font-mono text-sm`} /></Field>
-      <label className="flex items-center gap-3 rounded-xl bg-neutral-100 px-4 py-3 text-sm font-medium sm:col-span-2">
-        <input type="checkbox" {...register("isActive")} /> Activa
-      </label>
       <div className="sm:col-span-2"><Message value={state.result.message} ok={state.result.ok} /></div>
       <button disabled={state.pending} className={`${buttonClass} sm:col-span-2`}>
         {state.pending ? "Guardando…" : variant ? "Guardar variante" : "Añadir variante"}
@@ -225,23 +219,27 @@ export function VariantForm({ productId, variant }: { productId: string; variant
   );
 }
 
-type LocationValues = z.infer<typeof warehouseLocationSchema>;
+type LocationValues = Omit<z.input<typeof warehouseLocationSchema>, "warehouseId" | "isActive">;
 
 export function LocationForm({ warehouseId, location }: { warehouseId: string; location?: WarehouseLocation }) {
   const state = useResult();
   const { register, handleSubmit, reset } = useForm<LocationValues>({
     defaultValues: {
-      warehouseId, code: location?.code ?? "", name: location?.name ?? "",
-      locationType: location?.locationType ?? "storage", isActive: location?.isActive ?? true,
+      code: location?.code ?? "", name: location?.name ?? "",
+      locationType: location?.locationType ?? "storage",
     },
   });
   return (
     <form className="grid gap-3 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
-      const parsed = warehouseLocationSchema.safeParse({ ...values, warehouseId });
+      const parsed = warehouseLocationSchema.safeParse({
+        ...values,
+        warehouseId,
+        isActive: location?.isActive ?? true,
+      });
       if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
       state.run(async () => {
         const result = await saveLocationAction(location?.id ?? null, parsed.data);
-        if (result.ok && !location) reset({ warehouseId, code: "", name: "", locationType: "storage", isActive: true });
+        if (result.ok && !location) reset({ code: "", name: "", locationType: "storage" });
         return result;
       });
     })}>
@@ -251,9 +249,6 @@ export function LocationForm({ warehouseId, location }: { warehouseId: string; l
         <option value="storage">Almacenamiento</option><option value="picking">Picking</option>
         <option value="quarantine">Cuarentena</option><option value="in_transit">En tránsito</option>
       </select></Field>
-      <label className="flex items-center gap-3 self-end rounded-xl bg-neutral-100 px-4 py-3 text-sm font-medium">
-        <input type="checkbox" {...register("isActive")} /> Activa
-      </label>
       <div className="sm:col-span-2"><Message value={state.result.message} ok={state.result.ok} /></div>
       <button disabled={state.pending} className={`${buttonClass} sm:col-span-2`}>
         {state.pending ? "Guardando…" : location ? "Guardar ubicación" : "Añadir ubicación"}
