@@ -67,6 +67,9 @@ select public.admin_update_profile(
   \quit 1
 \endif
 \set ON_ERROR_STOP on
+
+-- La marca de último acceso del propio operador sí debe poder actualizarse.
+select public.mark_current_user_login();
 reset role;
 
 set local role authenticated;

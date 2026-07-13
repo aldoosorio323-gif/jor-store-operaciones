@@ -6,6 +6,12 @@ const migration = readFileSync(
   path.resolve("supabase/migrations/202607130001_auth_profiles_roles.sql"),
   "utf8",
 );
+const loginAuditCorrection = readFileSync(
+  path.resolve(
+    "supabase/migrations/202607130002_allow_login_audit_update.sql",
+  ),
+  "utf8",
+);
 
 function getFunctionBody(functionName: string): string {
   const escapedName = functionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -64,5 +70,23 @@ describe("migración de autenticación", () => {
     expect(updateProfile).toContain("not (select public.current_user_is_admin())");
     expect(currentRole).toContain("and p.is_active");
     expect(currentRole).toContain("and r.is_active");
+  });
+
+  it("permite al operador registrar solo su propia marca de acceso", () => {
+    expect(loginAuditCorrection).toContain("new.id = actor_id");
+    expect(loginAuditCorrection).toContain(
+      "new.role_id is not distinct from old.role_id",
+    );
+    expect(loginAuditCorrection).toContain(
+      "new.is_active is not distinct from old.is_active",
+    );
+    expect(loginAuditCorrection).toContain(
+      "new.updated_by is not distinct from actor_id",
+    );
+    expect(loginAuditCorrection).toContain(
+      "new.last_login_at is distinct from old.last_login_at",
+    );
+    expect(loginAuditCorrection).toContain("set search_path = ''");
+    expect(loginAuditCorrection).not.toMatch(/\bif\s+current_user\b/i);
   });
 });

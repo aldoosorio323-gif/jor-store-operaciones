@@ -47,6 +47,8 @@ La migración activa RLS en `roles`, `profiles` y `audit_logs`. No concede polí
 
 El trigger `private.protect_profile_write()` usa `session_user` únicamente para reconocer conexiones administrativas directas de migración o bootstrap (`postgres`/`supabase_admin`). En una función `SECURITY DEFINER`, `current_user` pasa a ser el propietario de la función y no identifica al solicitante original, por lo que no puede emplearse como bypass. Las peticiones de PostgREST conservan como usuario de sesión su conexión de API y deben superar las comprobaciones de `auth.uid()`, perfil activo y rol dentro de PostgreSQL.
 
+La migración incremental `202607130002` permite a un operador activo actualizar mediante `mark_current_user_login()` únicamente su propia marca `last_login_at` y `updated_by`. La excepción exige que identidad, rol, estado, nombre y demás campos de auditoría permanezcan sin cambios; no concede permisos directos de actualización sobre `profiles`.
+
 ## Secretos y navegador
 
 Nunca deben exponerse en el navegador:
