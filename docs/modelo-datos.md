@@ -25,6 +25,7 @@ Se implementarán como enums PostgreSQL o tablas catálogo cuando se necesite co
 - `movement_type`: `purchase_entry`, `sale_reservation`, `sale_dispatch`, `reservation_release`, `customer_return`, `supplier_return`, `transfer_out`, `transfer_in`, `positive_adjustment`, `negative_adjustment`, `damaged`, `lost`, `initial_stock`.
 - `payment_method`: `cash`, `bank_transfer`, `card`, `digital_wallet`, `other`.
 - `expense_status`: `draft`, `confirmed`, `cancelled`.
+- `location_type`: `storage`, `picking`, `quarantine`, `in_transit` (implementado en Etapa 2).
 
 Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delivered` puede conservar `order_payment_status = partial`, mientras su envío está `delivered`.
 
@@ -58,7 +59,7 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **PK:** `id uuid`.
 - **Campos:** `name`, `description`, `brand`, `category`, `unit_code`, `is_active`.
 - **FK:** actores de auditoría → `profiles`.
-- **Restricciones:** `name` y `unit_code` no vacíos; no se elimina si tiene variantes/historial.
+- **Restricciones:** `name` y `unit_code` no vacíos; unidad normalizada en mayúsculas; sin DELETE; no puede desactivarse mientras tenga variantes activas.
 - **Índices:** búsqueda normalizada por nombre; `category`; parcial por activos.
 - **Auditoría:** campos estándar.
 - **Relaciones:** uno a muchos con `product_variants`.
@@ -69,7 +70,7 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **PK:** `id uuid`.
 - **Campos:** `product_id`, `sku`, `name`, `color`, `attributes jsonb`, `barcode`, `sale_price numeric(14,2)`, `is_active`.
 - **FK:** `product_id → products(id) RESTRICT`; actores → `profiles`.
-- **Restricciones:** `sku` único, normalizado y no vacío; precio no negativo; `attributes` debe ser objeto; barcode único cuando exista.
+- **Restricciones:** `sku` único sin distinguir mayúsculas, normalizado en mayúsculas y no vacío; precio no negativo; `attributes` debe ser objeto; barcode único cuando exista; `product_id` inmutable; una variante activa exige producto activo; sin DELETE.
 - **Índices:** únicos por `upper(sku)` y barcode no nulo; `product_id`; búsqueda por nombre/color.
 - **Auditoría:** campos estándar.
 - **Relaciones:** muchos balances, movimientos, ítems de compra/pedido/transferencia.
@@ -80,7 +81,7 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **PK:** `id uuid`.
 - **Campos:** `code`, `name`, `description`, `address`, `is_active`.
 - **FK:** actores → `profiles`.
-- **Restricciones:** código único/no vacío; no desactivar con operaciones abiertas sin control.
+- **Restricciones:** código único sin distinguir mayúsculas, normalizado en mayúsculas y no vacío; sin DELETE; no puede desactivarse mientras tenga ubicaciones activas.
 - **Índices:** único `upper(code)`; parcial por activos.
 - **Auditoría:** campos estándar.
 - **Relaciones:** uno a muchos con ubicaciones, balances, movimientos y transferencias.
@@ -91,7 +92,7 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **PK:** `id uuid`.
 - **Campos:** `warehouse_id`, `code`, `name`, `location_type` (`storage`, `picking`, `quarantine`, `in_transit`), `is_active`.
 - **FK:** `warehouse_id → warehouses(id) RESTRICT`; actores → `profiles`.
-- **Restricciones:** único `(warehouse_id, upper(code))`; ubicación activa solo dentro de almacén activo; no moverla entre almacenes si tiene historial.
+- **Restricciones:** único `(warehouse_id, upper(code))`; el mismo código puede existir en almacenes distintos; ubicación activa solo dentro de almacén activo; `warehouse_id` inmutable; sin DELETE.
 - **Índices:** `warehouse_id`; único compuesto; parcial por activos.
 - **Auditoría:** campos estándar.
 - **Relaciones:** balances/movimientos y origen/destino de transferencias.
@@ -102,7 +103,7 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **PK:** `id uuid`.
 - **Campos:** `code`, `business_name`, `tax_id`, `contact_name`, `email`, `phone`, `notes`, `is_active`.
 - **FK:** actores → `profiles`.
-- **Restricciones:** razón social no vacía; código único; `tax_id` único cuando exista y con validación de formato separada.
+- **Restricciones:** razón social no vacía; código único sin distinguir mayúsculas y normalizado; `tax_id` único cuando exista; correo validado cuando exista; sin DELETE.
 - **Índices:** `upper(code)`, `tax_id` parcial, búsqueda por razón social.
 - **Auditoría:** campos estándar.
 - **Relaciones:** uno a muchos con `purchases`.
@@ -250,7 +251,11 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **Auditoría:** `created_at`; el registro mismo es auditoría e inmutable.
 - **Relaciones:** referencia lógica a cualquier entidad; se inserta en la misma transacción sensible.
 
-En Etapa 1 se implementa el subconjunto mínimo `actor_user_id`, `action`, `target_profile_id`, `metadata` y `occurred_at` para acciones de usuarios. Las columnas generales de entidad/request/IP se añadirán mediante migración futura cuando exista la infraestructura de auditoría completa; el subconjunto actual no se reemplazará ni borrará.
+Etapa 1 implementó `actor_user_id`, `action`, `target_profile_id`, `metadata` y `occurred_at`. Etapa 2 añade `entity_type` y `entity_id` sin reemplazar el historial y registra creación, actualización y cambio de estado de los cinco catálogos con resúmenes sin PII. Request/IP permanecen pendientes para una infraestructura futura.
+
+## Implementación de Etapa 2
+
+La migración `202607130003_catalogs.sql` crea las cinco tablas anteriores con auditoría estándar referenciada a `profiles`. Triggers privados asignan fechas y actor desde `auth.uid()`, normalizan SKU/códigos/correo y convierten opcionales vacíos a `null`. RLS permite al administrador activo leer todo y escribir; el operador activo solo lee filas activas, con producto/almacén padre activo; inactivos y anónimos no leen. La migración está implementada en código y pendiente de aplicación remota manual. No crea balances, existencias, movimientos, compras ni pedidos.
 
 ## Relaciones principales
 

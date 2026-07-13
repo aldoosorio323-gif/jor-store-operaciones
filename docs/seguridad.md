@@ -29,7 +29,13 @@ Los roles iniciales son `administrator` y `operator`. `profiles.role_id` referen
 | Leer auditoría completa | Sí | No |
 | Eliminar movimientos | Nunca | Nunca |
 
-La matriz se concretará mediante políticas y pruebas en la Etapa 1. Los permisos delicados pueden separarse de los roles más adelante sin reescribir el modelo.
+La matriz base se concretó en Etapa 1 y los catálogos de Etapa 2 aplican el siguiente alcance:
+
+| Catálogos | Administrador activo | Operador activo | Inactivo/anónimo |
+| --- | --- | --- | --- |
+| Productos, variantes, almacenes, ubicaciones y proveedores | Leer activos/inactivos; crear, editar y activar/desactivar | Leer únicamente registros activos y padres activos | Sin acceso |
+
+No existen políticas DELETE. Ocultar controles en la interfaz es solo una ayuda: Server Actions y RLS vuelven a autorizar cada mutación.
 
 La matriz base ya está aplicada en la migración de Etapa 1. El navegador puede solicitar un rol permitido, pero la función SQL vuelve a validar actor, rol objetivo y la invariante del último administrador.
 
@@ -48,6 +54,8 @@ La migración activa RLS en `roles`, `profiles` y `audit_logs`. No concede polí
 El trigger `private.protect_profile_write()` usa `session_user` únicamente para reconocer conexiones administrativas directas de migración o bootstrap (`postgres`/`supabase_admin`). En una función `SECURITY DEFINER`, `current_user` pasa a ser el propietario de la función y no identifica al solicitante original, por lo que no puede emplearse como bypass. Las peticiones de PostgREST conservan como usuario de sesión su conexión de API y deben superar las comprobaciones de `auth.uid()`, perfil activo y rol dentro de PostgreSQL.
 
 La migración incremental `202607130002` permite a un operador activo actualizar mediante `mark_current_user_login()` únicamente su propia marca `last_login_at` y `updated_by`. La excepción exige que identidad, rol, estado, nombre y demás campos de auditoría permanezcan sin cambios; no concede permisos directos de actualización sobre `profiles`.
+
+La migración `202607130003` habilita RLS en las cinco tablas de catálogos. Las políticas separan SELECT, INSERT y UPDATE; el operador solo ve filas activas y, en variantes/ubicaciones, exige también padre activo. Triggers con funciones privadas asignan actor y fechas desde `auth.uid()`, normalizan entradas, bloquean cambios de padre y rechazan desactivaciones inconsistentes. Los clientes no reciben DELETE.
 
 ## Secretos y navegador
 
@@ -87,6 +95,8 @@ Operaciones sensibles insertan `audit_logs` en la misma transacción, con actor,
 
 En Etapa 1 se creó una estructura mínima compatible: invitación, cambio de rol, activación, desactivación, bootstrap y recuperación completada. `metadata` guarda solo estados/roles anteriores y nuevos; no guarda correo, contraseñas, tokens, enlaces ni payloads de Auth. La auditoría general se ampliará en su etapa sin reemplazar este historial.
 
+Etapa 2 amplía de forma incremental `audit_logs` con `entity_type` y `entity_id`, además de acciones de creación, actualización, activación y desactivación para productos, variantes, almacenes, ubicaciones y proveedores. Los triggers guardan solo estado o una marca segura de cambio: nunca copian correos, teléfonos, direcciones, identificaciones tributarias ni formularios completos.
+
 Después de invitar una cuenta, la acción comprueba por separado el resultado de `admin_record_invitation`. Si esa auditoría falla, no repite ni revierte la invitación: devuelve un estado no exitoso que informa, sin datos personales ni detalle técnico, que la cuenta fue invitada y la auditoría requiere revisión.
 
 ## Sesiones
@@ -118,6 +128,6 @@ Después de invitar una cuenta, la acción comprueba por separado el resultado d
 
 RLS probada, signup desactivado, buckets privados, secretos en hosting, URLs permitidas, backups/restore ensayados, retención definida, dependencias auditadas y pruebas de autorización aprobadas. Nada de esto implica que producción esté configurada en Etapa 1.
 
-## Verificación de Etapa 1
+## Verificación
 
-Las pruebas unitarias/estáticas verifican validaciones, decisiones de ruta, inactividad, rol, redirecciones, ausencia de service role en componentes cliente y estructura de la migración. La prueba SQL `supabase/tests/rls_auth_roles.sql` queda preparada, pero requiere un Supabase local/de desarrollo con usuarios ficticios. No se declara probada contra un backend remoto porque `.env.local` no existe.
+Etapa 1 y sus migraciones 001/002 están conectadas al Supabase real de desarrollo. Las pruebas unitarias/estáticas de Etapa 2 verifican Zod, permisos, navegación, ausencia de `service_role` cliente y estructura de migración/RLS. `supabase/tests/rls_catalogs.sql` queda preparado con `ROLLBACK`; no se declara ejecutado remotamente porque la migración 003 sigue pendiente de revisión y aplicación.

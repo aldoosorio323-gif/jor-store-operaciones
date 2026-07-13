@@ -2,7 +2,7 @@
 
 ## Alcance
 
-JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. La Etapa 1 implementa la integración, pero aún no conecta un proyecto Supabase real.
+JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. La integración real de Etapa 1 está validada; Etapa 2 añade los catálogos en código y deja su migración pendiente de aplicación remota manual.
 
 ## Vista general
 
@@ -44,6 +44,7 @@ flowchart LR
 - PostgreSQL es la fuente oficial de verdad y aplica claves, checks, unicidad, RLS y funciones transaccionales.
 - Funciones `security definer`, cuando sean imprescindibles, fijan `search_path`, validan rol y tienen permisos mínimos.
 - Storage conserva comprobantes e imágenes en buckets privados; el acceso se concede mediante políticas y URLs firmadas.
+- Los catálogos usan RLS para que el administrador activo lea todo y escriba, mientras el operador activo solo lee filas activas. Triggers normalizan, protegen campos de auditoría, validan relaciones y escriben `audit_logs` dentro de la misma transacción.
 
 ### GitHub y Netlify
 
@@ -104,8 +105,8 @@ No se usará `localStorage` como base de datos. La caché del cliente, si se inc
 
 ## Estructura y evolución
 
-Los módulos se organizan por dominio en `src/features` y dependen de servicios y tipos compartidos, no unos de otros de forma circular. Las migraciones SQL serán secuenciales e inmutables. Se añadirá manifiesto PWA, service worker y estrategia offline solo en la Etapa 7; ninguna operación crítica se confirmará offline.
+Los módulos se organizan por dominio en `src/features`; las consultas de catálogos viven en `src/services/catalogs`, sus esquemas en `src/validations/catalogs.ts`, los tipos en `src/types/catalogs.ts` y las rutas/composición en `src/app/app`. Las lecturas son Server Components paginados y las mutaciones Server Actions con JWT del usuario, sin `service_role`. Las migraciones SQL son secuenciales e inmutables. Se añadirá PWA solo en Etapa 7.
 
 ## Estado de integración
 
-El código, migración y pruebas estáticas de Etapa 1 están implementados. Falta crear/configurar Supabase, aplicar la migración y ejecutar `supabase/tests/rls_auth_roles.sql` con usuarios ficticios. No se ha configurado Netlify ni se ha iniciado la Etapa 2.
+Las migraciones 001 y 002 de Etapa 1 están aplicadas en el Supabase de desarrollo. Etapa 2 implementa productos, variantes, almacenes, ubicaciones y proveedores; `202607130003_catalogs.sql` y `supabase/tests/rls_catalogs.sql` están preparados, pero la migración y las pruebas SQL todavía no se ejecutan remotamente. No existen inventario, compras, pedidos ni despliegue Netlify.

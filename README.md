@@ -2,7 +2,7 @@
 
 Aplicación web interna, privada y móvil primero para administrar las operaciones de JOR STORE. El proyecto avanza por etapas y usa Supabase PostgreSQL como única fuente oficial de datos.
 
-> Estado actual: **Etapa 1 — autenticación, perfiles y roles implementados en código**. La conexión con un proyecto Supabase real queda pendiente de configuración manual; la Etapa 2 no ha comenzado.
+> Estado actual: **Etapa 2 — catálogos operativos implementados en código**. La Etapa 1 fue validada con Supabase real y las migraciones `202607130001` y `202607130002` están aplicadas. La migración `202607130003_catalogs.sql` queda pendiente de revisión y aplicación remota manual.
 
 ## Tecnologías
 
@@ -16,7 +16,7 @@ Aplicación web interna, privada y móvil primero para administrar las operacion
 
 La interfaz está en español, la moneda funcional es PEN y la zona de negocio es `America/Lima`.
 
-## Funcionalidad de Etapa 1
+## Funcionalidad implementada
 
 - Inicio y cierre de sesión privados, sin registro público.
 - Renovación SSR de sesión mediante cookies y `getClaims()`.
@@ -28,8 +28,14 @@ La interfaz está en español, la moneda funcional es PEN y la zona de negocio e
 - Protección contra desactivar o degradar al último administrador activo.
 - Recuperación y restablecimiento de contraseña con destinos permitidos.
 - Auditoría mínima de invitación, rol, activación, desactivación y recuperación.
+- Productos y variantes con SKU, precio, atributos y borrado lógico.
+- Almacenes y ubicaciones internas controladas por tipo.
+- Proveedores privados, sin compras asociadas todavía.
+- Búsqueda, filtros administrativos, paginación de 20 registros y vistas móviles.
+- Mutaciones exclusivas para administradores; operadores activos consultan solo registros activos.
+- RLS, restricciones relacionales y auditoría transaccional para los cinco catálogos.
 
-No se implementaron productos, inventario, compras, pedidos ni dashboard.
+No se implementaron stock, movimientos, compras, pedidos, pagos, envíos, gastos ni dashboard.
 
 ## Requisitos
 
@@ -75,6 +81,12 @@ La validación es diferida: `npm run build` funciona sin credenciales, pero una 
 | `/app` | Usuario autenticado y activo. |
 | `/app/perfil` | Perfil propio activo. |
 | `/app/usuarios` | Solo administrador activo. |
+| `/app/productos` y `/app/productos/[id]` | Administrador u operador activo; operador en lectura. |
+| `/app/productos/nuevo` | Solo administrador activo. |
+| `/app/almacenes` y `/app/almacenes/[id]` | Administrador u operador activo; operador en lectura. |
+| `/app/almacenes/nuevo` | Solo administrador activo. |
+| `/app/proveedores` y `/app/proveedores/[id]` | Administrador u operador activo; operador en lectura. |
+| `/app/proveedores/nuevo` | Solo administrador activo. |
 
 No existe ruta de registro.
 
@@ -91,11 +103,15 @@ No existe ruta de registro.
 
 GitHub Actions ejecuta `npm ci`, lint, typecheck, test y build en pushes a `desarrollo` y pull requests hacia `desarrollo` o `main`, sin secretos reales.
 
-## Pruebas Supabase pendientes
+### Verificación local de Etapa 2
 
-Las pruebas unitarias validan formularios, rutas, roles, inactividad, redirecciones, entorno, límites de secretos y contenido de la migración. La verificación SQL real está en `supabase/tests/rls_auth_roles.sql` y necesita una base Supabase local/de desarrollo con usuarios ficticios; el comando exacto está documentado en `docs/configuracion-supabase.md`.
+Se ejecutaron `npm install`, `npm run lint`, `npm run typecheck`, `npm run test` (38 pruebas) y `npm run build` correctamente. `git diff --check` no reportó errores. El dry-run de Supabase propone únicamente `202607130003_catalogs.sql`. Las pruebas SQL de catálogos no se ejecutaron porque la migración 003 no debe aplicarse remotamente antes de revisar el commit.
 
-No se afirma que Auth remoto o RLS hayan sido probados: este repositorio no contiene `.env.local` ni credenciales.
+## Migraciones y pruebas Supabase
+
+Las migraciones 001 y 002 aparecen aplicadas local y remotamente. La migración 003 crea `products`, `product_variants`, `warehouses`, `warehouse_locations` y `suppliers`, pero no se aplica automáticamente: primero debe revisarse el commit y luego ejecutarse manualmente.
+
+Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS, restricciones, auditoría y límites de secretos. `supabase/tests/rls_catalogs.sql` prepara verificaciones reproducibles para anónimo, administrador, operador e inactivo, unicidad, relaciones inmutables, borrado y desactivación de padres. Termina con `ROLLBACK`; no se afirma que haya pasado en remoto mientras 003 no esté aplicada.
 
 ## Seguridad
 
@@ -103,7 +119,9 @@ No se afirma que Auth remoto o RLS hayan sido probados: este repositorio no cont
 - Perfiles nuevos nacen inactivos y con rol operador; el navegador no decide el rol.
 - Ningún cliente tiene permisos directos para insertar, actualizar o borrar perfiles.
 - Funciones `security definer` fijan `search_path` vacío y verifican actor activo/administrador.
-- Movimientos y datos operativos siguen fuera de alcance de esta etapa.
+- Los catálogos no admiten DELETE desde clientes; la desactivación de productos/almacenes exige que sus hijos estén inactivos.
+- La auditoría de catálogos guarda actor, entidad, identificador y resúmenes sin correos, teléfonos, direcciones, identificaciones tributarias ni payloads completos.
+- Movimientos, stock y documentos operativos siguen fuera de alcance de esta etapa.
 - Nunca confirmar secretos, datos reales, Excel, CSV, respaldos, bases o logs.
 
 ## Flujo de ramas
@@ -121,4 +139,4 @@ No se afirma que Auth remoto o RLS hayan sido probados: este repositorio no cont
 - `docs/plan-implementacion.md`: etapas y estado.
 - `docs/reglas-inventario.md`: invariantes futuras de inventario.
 
-La siguiente etapa prevista es **Etapa 2: productos, variantes y almacenes**, pero no debe iniciarse sin una solicitud expresa.
+La siguiente etapa prevista es **Etapa 3: compras, reposición y movimientos**, pero no debe iniciarse sin una solicitud expresa y sin revisar/aplicar primero la migración 003.

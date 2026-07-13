@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logoutAction } from "@/app/actions/auth";
 import type { CurrentUserContext } from "@/lib/auth/session";
+import { getPrivateNavigationItems } from "@/features/catalogs/permissions";
 
 export function PrivateHeader({ user }: { user: CurrentUserContext }) {
   return (
@@ -25,17 +26,11 @@ export function PrivateHeader({ user }: { user: CurrentUserContext }) {
           </form>
         </div>
         <nav aria-label="Navegación principal" className="mt-4 flex gap-2 overflow-x-auto pb-1">
-          <Link href="/app" className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-900">
-            Inicio
-          </Link>
-          <Link href="/app/perfil" className="rounded-full bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700">
-            Mi perfil
-          </Link>
-          {user.role === "administrator" ? (
-            <Link href="/app/usuarios" className="rounded-full bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700">
-              Usuarios
+          {getPrivateNavigationItems(user.role).map((item) => (
+            <Link key={item.href} href={item.href} className="whitespace-nowrap rounded-full bg-neutral-100 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-emerald-100 hover:text-emerald-900">
+              {item.label}
             </Link>
-          ) : null}
+          ))}
         </nav>
       </div>
     </header>
