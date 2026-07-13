@@ -9,6 +9,10 @@
 \set ON_ERROR_STOP on
 begin;
 
+-- PostgREST abre la conexión como authenticator y luego asume anon/authenticated.
+-- Esto evita confundir la conexión directa de psql con una petición de API.
+set local session authorization authenticator;
+
 set local role anon;
 select (count(*) = 0) as anonymous_profiles_hidden from public.profiles \gset
 \if :anonymous_profiles_hidden
@@ -49,6 +53,20 @@ where id = :'operator_id'::uuid;
   \quit 1
 \endif
 \set ON_ERROR_STOP on
+
+\set ON_ERROR_STOP off
+select public.admin_update_profile(
+  :'other_id'::uuid,
+  'operator',
+  true,
+  null
+);
+\if :ERROR
+\else
+  \echo 'FALLO: el operador pudo ejecutar admin_update_profile.'
+  \quit 1
+\endif
+\set ON_ERROR_STOP on
 reset role;
 
 set local role authenticated;
@@ -63,6 +81,20 @@ select (count(*) = 0) as inactive_profiles_hidden from public.profiles \gset
   \echo 'FALLO: el usuario inactivo pudo leer perfiles.'
   \quit 1
 \endif
+
+\set ON_ERROR_STOP off
+select public.admin_update_profile(
+  :'other_id'::uuid,
+  'operator',
+  true,
+  null
+);
+\if :ERROR
+\else
+  \echo 'FALLO: el usuario inactivo pudo ejecutar admin_update_profile.'
+  \quit 1
+\endif
+\set ON_ERROR_STOP on
 reset role;
 
 set local role authenticated;
@@ -77,6 +109,19 @@ select (count(*) >= 2) as admin_can_see_profiles from public.profiles \gset
   \echo 'FALLO: el administrador no pudo consultar perfiles.'
   \quit 1
 \endif
+
+select r.code as target_role, p.is_active::text as target_active
+from public.profiles p
+join public.roles r on r.id = p.role_id
+where p.id = :'other_id'::uuid
+\gset
+
+select public.admin_update_profile(
+  :'other_id'::uuid,
+  :'target_role',
+  :'target_active'::boolean,
+  null
+);
 reset role;
 
 rollback;

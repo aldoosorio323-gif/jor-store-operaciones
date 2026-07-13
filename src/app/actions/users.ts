@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { buildAuthCallbackUrl } from "@/lib/auth/redirects";
+import { invitationAuditFailureResult } from "@/lib/auth/invitation-results";
 import { getCurrentUserContext } from "@/lib/auth/session";
 import { EnvironmentConfigurationError } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -60,10 +61,17 @@ export async function inviteUserAction(input: unknown): Promise<ActionResult> {
       };
     }
 
-    await clients.supabase.rpc("admin_record_invitation", {
-      p_profile_id: data.user.id,
-    });
+    const { error: auditError } = await clients.supabase.rpc(
+      "admin_record_invitation",
+      {
+        p_profile_id: data.user.id,
+      },
+    );
     revalidatePath("/app/usuarios");
+
+    if (auditError) {
+      return invitationAuditFailureResult();
+    }
 
     return { ok: true, message: "Invitación enviada correctamente." };
   } catch (error) {

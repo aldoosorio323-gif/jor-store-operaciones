@@ -45,6 +45,8 @@ La matriz base ya está aplicada en la migración de Etapa 1. El navegador puede
 
 La migración activa RLS en `roles`, `profiles` y `audit_logs`. No concede políticas de inserción, actualización o borrado de perfiles. Operadores leen su perfil y roles activos; administradores activos leen perfiles; anónimos e inactivos no obtienen filas. Las mutaciones administrativas pasan por RPC verificadas.
 
+El trigger `private.protect_profile_write()` usa `session_user` únicamente para reconocer conexiones administrativas directas de migración o bootstrap (`postgres`/`supabase_admin`). En una función `SECURITY DEFINER`, `current_user` pasa a ser el propietario de la función y no identifica al solicitante original, por lo que no puede emplearse como bypass. Las peticiones de PostgREST conservan como usuario de sesión su conexión de API y deben superar las comprobaciones de `auth.uid()`, perfil activo y rol dentro de PostgreSQL.
+
 ## Secretos y navegador
 
 Nunca deben exponerse en el navegador:
@@ -82,6 +84,8 @@ Los secretos locales viven en `.env.local`; en hosting, en el gestor cifrado. Se
 Operaciones sensibles insertan `audit_logs` en la misma transacción, con actor, acción, entidad, identificador, resumen seguro, fecha, request/correlation ID e IP/agent cuando sea legítimo. Se filtran secretos y PII innecesaria. Los registros no se editan ni eliminan desde la interfaz.
 
 En Etapa 1 se creó una estructura mínima compatible: invitación, cambio de rol, activación, desactivación, bootstrap y recuperación completada. `metadata` guarda solo estados/roles anteriores y nuevos; no guarda correo, contraseñas, tokens, enlaces ni payloads de Auth. La auditoría general se ampliará en su etapa sin reemplazar este historial.
+
+Después de invitar una cuenta, la acción comprueba por separado el resultado de `admin_record_invitation`. Si esa auditoría falla, no repite ni revierte la invitación: devuelve un estado no exitoso que informa, sin datos personales ni detalle técnico, que la cuenta fue invitada y la auditoría requiere revisión.
 
 ## Sesiones
 

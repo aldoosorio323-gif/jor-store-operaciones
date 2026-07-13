@@ -68,6 +68,8 @@ npx supabase@latest db push
 
 Revisar el `--dry-run` antes de aplicar. No ejecutar `db reset` en un proyecto remoto con información útil. Las migraciones crean roles, perfiles inactivos por defecto, auditoría mínima, funciones seguras y políticas RLS.
 
+La protección de perfiles distingue las conexiones SQL administrativas directas mediante `session_user`. PostgreSQL conserva allí el usuario que abrió la conexión; en cambio, `current_user` cambia al propietario al ejecutar una función `SECURITY DEFINER` y no es seguro usarlo como bypass. Por eso las llamadas desde PostgREST, incluso dentro de funciones privilegiadas, siguen obligadas a validar `auth.uid()`, perfil activo y rol administrador. El acceso directo queda limitado a las cuentas de infraestructura usadas por migraciones y por el bootstrap manual.
+
 ## 7. Crear el primer usuario
 
 1. En **Authentication / Users**, elegir **Add user / Create new user**.
@@ -117,9 +119,11 @@ Abrir `http://localhost:3000`. Verificar:
 
 Desde `/app/usuarios`, el administrador ingresa nombre, correo y rol. La invitación se ejecuta en servidor con Auth Admin API; el perfil nace inactivo y solo se activa después de asignar el rol mediante la función SQL autorizada. El invitado usa el enlace para establecer su contraseña.
 
+La invitación y su registro de auditoría son operaciones externas separadas. Si Auth ya envió la invitación pero la RPC de auditoría falla, la aplicación no vuelve a invitar ni intenta deshacer el envío: muestra un resultado parcial para revisión administrativa, sin exponer correo, UUID, tokens o errores SQL.
+
 ## 11. Verificar RLS
 
-`supabase/tests/rls_auth_roles.sql` requiere una base local/de desarrollo con cuatro usuarios ficticios preparados. Ejecutar con `psql`, pasando sus UUID explícitamente como variables:
+`supabase/tests/rls_auth_roles.sql` requiere una base local/de desarrollo con cuatro usuarios ficticios preparados y una conexión con permiso para asumir localmente el rol `authenticator`. El script usa ese rol de sesión para reproducir el comportamiento de PostgREST sin activar el bypass reservado a conexiones SQL administrativas directas. Ejecutar con `psql`, pasando los UUID explícitamente como variables:
 
 ```bash
 psql "$SUPABASE_DB_URL" -v admin_id='<UUID>' -v operator_id='<UUID>' -v inactive_id='<UUID>' -v other_id='<UUID>' -f supabase/tests/rls_auth_roles.sql

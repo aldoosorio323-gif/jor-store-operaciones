@@ -135,8 +135,9 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- Migraciones y funciones SECURITY DEFINER verificadas pueden escribir.
-  if current_user in ('postgres', 'supabase_admin') then
+  -- session_user conserva quien abrió la conexión; current_user sería el dueño
+  -- de esta función SECURITY DEFINER y daría un bypass a llamadas PostgREST.
+  if session_user in ('postgres', 'supabase_admin') then
     return new;
   end if;
 
