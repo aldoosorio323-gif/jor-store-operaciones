@@ -1,0 +1,39 @@
+name: Calidad
+
+on:
+  push:
+    branches: [desarrollo]
+  pull_request:
+    branches: [desarrollo, main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obtener código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: TypeScript
+        run: npm run typecheck
+
+      - name: Pruebas
+        run: npm run test
+
+      - name: Compilación
+        run: npm run build

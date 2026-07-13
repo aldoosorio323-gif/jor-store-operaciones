@@ -11,6 +11,8 @@ El sistema contiene datos personales, financieros e inventario. Se aplica denega
 - Solo un administrador autenticado podrá invitar o crear cuentas mediante una acción de servidor.
 - No guardar ni registrar contraseñas. Supabase administra hashes y tokens.
 - Confirmar correo según la política del proyecto; no usar cuentas reales en seeds.
+- La aplicación implementa login, logout, callback PKCE/OTP, recuperación y cambio de contraseña; no existe página pública de registro.
+- Los perfiles creados por el trigger nacen inactivos y con rol operador. Solo el bootstrap manual o un administrador activo puede habilitarlos.
 
 ## Roles y acceso
 
@@ -29,6 +31,8 @@ Los roles iniciales son `administrator` y `operator`. `profiles.role_id` referen
 
 La matriz se concretará mediante políticas y pruebas en la Etapa 1. Los permisos delicados pueden separarse de los roles más adelante sin reescribir el modelo.
 
+La matriz base ya está aplicada en la migración de Etapa 1. El navegador puede solicitar un rol permitido, pero la función SQL vuelve a validar actor, rol objetivo y la invariante del último administrador.
+
 ## Row Level Security
 
 - RLS debe activarse antes de exponer cada tabla en la API.
@@ -38,6 +42,8 @@ La matriz se concretará mediante políticas y pruebas en la Etapa 1. Los permis
 - Las escrituras críticas se harán mediante RPC transaccionales con permisos mínimos.
 - Probar cada política como anónimo, operador, administrador y usuario deshabilitado.
 - Revocar privilegios públicos innecesarios y no confiar solo en ocultar rutas.
+
+La migración activa RLS en `roles`, `profiles` y `audit_logs`. No concede políticas de inserción, actualización o borrado de perfiles. Operadores leen su perfil y roles activos; administradores activos leen perfiles; anónimos e inactivos no obtienen filas. Las mutaciones administrativas pasan por RPC verificadas.
 
 ## Secretos y navegador
 
@@ -51,6 +57,8 @@ Nunca deben exponerse en el navegador:
 - Mensajes SQL internos, trazas completas o variables del proceso.
 
 Los secretos locales viven en `.env.local`; en hosting, en el gestor cifrado. Se rotan si existe sospecha de exposición. `.env.example` nunca contiene valores.
+
+`SUPABASE_SERVICE_ROLE_KEY` está aislada en `src/lib/env-server.ts` y `src/lib/supabase/admin.ts`, ambos `server-only`. Se utiliza solo para `inviteUserByEmail`; listar correos en la pantalla administrativa también requiere Auth Admin en servidor. Los cambios de rol/estado usan el JWT del administrador y no la clave privilegiada.
 
 ## Datos personales
 
@@ -73,6 +81,8 @@ Los secretos locales viven en `.env.local`; en hosting, en el gestor cifrado. Se
 
 Operaciones sensibles insertan `audit_logs` en la misma transacción, con actor, acción, entidad, identificador, resumen seguro, fecha, request/correlation ID e IP/agent cuando sea legítimo. Se filtran secretos y PII innecesaria. Los registros no se editan ni eliminan desde la interfaz.
 
+En Etapa 1 se creó una estructura mínima compatible: invitación, cambio de rol, activación, desactivación, bootstrap y recuperación completada. `metadata` guarda solo estados/roles anteriores y nuevos; no guarda correo, contraseñas, tokens, enlaces ni payloads de Auth. La auditoría general se ampliará en su etapa sin reemplazar este historial.
+
 ## Sesiones
 
 - Cookies seguras, `HttpOnly` cuando corresponda, `Secure` en producción y `SameSite=Lax` o más restrictivo.
@@ -80,6 +90,7 @@ Operaciones sensibles insertan `audit_logs` en la misma transacción, con actor,
 - Cerrar sesión invalida la sesión local; cambios de contraseña o desactivación deben revocar sesiones relevantes.
 - Validar redirecciones contra una lista permitida y evitar open redirects.
 - Definir expiración y reautenticación para acciones administrativas sensibles.
+- `proxy.ts` renueva cookies con `getClaims()` y preserva encabezados `private/no-store`; los Server Components vuelven a validar usuario y perfil.
 
 ## Recuperación de contraseña
 
@@ -99,4 +110,8 @@ Operaciones sensibles insertan `audit_logs` en la misma transacción, con actor,
 
 ## Lista previa a producción
 
-RLS probada, signup desactivado, buckets privados, secretos en hosting, URLs permitidas, backups/restore ensayados, retención definida, dependencias auditadas y pruebas de autorización aprobadas. Nada de esto implica que producción esté configurada en Etapa 0.
+RLS probada, signup desactivado, buckets privados, secretos en hosting, URLs permitidas, backups/restore ensayados, retención definida, dependencias auditadas y pruebas de autorización aprobadas. Nada de esto implica que producción esté configurada en Etapa 1.
+
+## Verificación de Etapa 1
+
+Las pruebas unitarias/estáticas verifican validaciones, decisiones de ruta, inactividad, rol, redirecciones, ausencia de service role en componentes cliente y estructura de la migración. La prueba SQL `supabase/tests/rls_auth_roles.sql` queda preparada, pero requiere un Supabase local/de desarrollo con usuarios ficticios. No se declara probada contra un backend remoto porque `.env.local` no existe.

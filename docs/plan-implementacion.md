@@ -13,10 +13,11 @@ El proyecto avanza por etapas cerradas. Cada etapa empieza solo por solicitud ex
 ## Etapa 1 — Autenticación y roles
 
 - **Objetivo:** acceso privado y autorización base.
-- **Entregables:** proyecto Supabase local/remoto de desarrollo autorizado, migraciones `roles`/`profiles`, sesión SSR, login, logout, recuperación, administración controlada de usuarios, RLS y pruebas de políticas.
+- **Estado:** implementación de código completada; configuración y verificación remota pendientes.
+- **Entregables:** migraciones `roles`/`profiles`/auditoría mínima, sesión SSR, login, logout, recuperación, administración controlada de usuarios, RLS, pruebas unitarias/estáticas y guion reproducible de políticas.
 - **Dependencias:** Etapa 0; credenciales de desarrollo entregadas fuera de Git.
 - **Riesgos:** exponer `service_role`, signup público, bucles de sesión, políticas demasiado amplias.
-- **Aceptación:** anónimo sin acceso; administrador y operador con matriz probada; cuentas solo por administrador; secretos ausentes del cliente y repositorio.
+- **Aceptación:** código y build aprobados sin secretos; anónimo/operador/inactivo/administrador cubiertos por pruebas puras y SQL preparado; falta aplicar la migración y ejecutar la prueba SQL en Supabase para cerrar la validación de integración.
 
 ## Etapa 2 — Productos, variantes y almacenes
 

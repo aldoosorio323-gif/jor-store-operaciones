@@ -46,8 +46,8 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **Propósito:** datos operativos y rol de cada identidad Supabase.
 - **PK:** `id uuid`, igual a `auth.users.id`.
 - **Campos:** `role_id`, `display_name`, `is_active`, `last_login_at`.
-- **FK:** `id → auth.users(id) ON DELETE CASCADE`; `role_id → roles(id) RESTRICT`; actores → `profiles(id) SET NULL`.
-- **Restricciones:** nombre no vacío; un usuario inactivo no puede operar aunque su sesión aún exista.
+- **FK:** `id → auth.users(id) ON DELETE RESTRICT`; `role_id → roles(id) RESTRICT`; actores → `profiles(id) SET NULL`. Se usa `RESTRICT` porque retirar acceso se hace con `is_active`, no borrando identidades con historial.
+- **Restricciones:** nombre no vacío; un usuario inactivo no puede operar aunque su sesión aún exista. Los perfiles creados desde Auth nacen inactivos y con rol operador hasta una activación controlada.
 - **Índices:** `role_id`, parcial `is_active = true`.
 - **Auditoría:** campos estándar; no duplicar contraseña, token ni datos internos de Auth.
 - **Relaciones:** actor/creador de la mayoría de entidades y movimientos.
@@ -249,6 +249,8 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **Índices:** `(entity_type, entity_id, occurred_at desc)`, `(actor_user_id, occurred_at desc)`, `request_id`, `occurred_at desc`.
 - **Auditoría:** `created_at`; el registro mismo es auditoría e inmutable.
 - **Relaciones:** referencia lógica a cualquier entidad; se inserta en la misma transacción sensible.
+
+En Etapa 1 se implementa el subconjunto mínimo `actor_user_id`, `action`, `target_profile_id`, `metadata` y `occurred_at` para acciones de usuarios. Las columnas generales de entidad/request/IP se añadirán mediante migración futura cuando exista la infraestructura de auditoría completa; el subconjunto actual no se reemplazará ni borrará.
 
 ## Relaciones principales
 

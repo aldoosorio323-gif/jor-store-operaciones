@@ -2,7 +2,7 @@
 
 ## Alcance
 
-JOR Store Operaciones será una aplicación web privada, responsive y móvil primero. Next.js entregará la interfaz y la capa de servidor; Supabase concentrará autenticación, PostgreSQL y almacenamiento; GitHub conservará el historial; Netlify alojará la aplicación en una etapa futura. La Etapa 0 no conecta servicios reales.
+JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. La Etapa 1 implementa la integración, pero aún no conecta un proyecto Supabase real.
 
 ## Vista general
 
@@ -26,6 +26,7 @@ flowchart LR
 - Formularios con React Hook Form; Zod valida forma, tipos y mensajes tempranos.
 - Muestra fechas en `America/Lima` e importes en PEN.
 - Nunca decide autorizaciones, calcula totales definitivos ni modifica balances directamente.
+- El cliente de navegador usa exclusivamente URL y clave anónima; no importa módulos administrativos.
 
 ### Servidor Next.js
 
@@ -34,6 +35,8 @@ flowchart LR
 - Puede ejecutar procesos administrativos controlados con `service_role` solo en runtime de servidor y con autorización explícita.
 - Genera importaciones/exportaciones con ExcelJS, límites de tamaño y reportes de rechazo.
 - No reemplaza las transacciones críticas de PostgreSQL con múltiples llamadas independientes.
+- `src/proxy.ts` renueva cookies con `@supabase/ssr` y hace una primera decisión de ruta; cada layout/página sensible vuelve a autorizar en servidor.
+- Las acciones administrativas verifican la sesión y el rol antes de aceptar el rol/estado solicitado por la interfaz.
 
 ### Supabase
 
@@ -57,6 +60,25 @@ flowchart LR
 5. La función bloquea filas afectadas, valida estado/stock, actualiza agregados, inserta movimientos/auditoría y confirma o revierte todo.
 6. Next.js invalida datos almacenados en caché y responde con un resultado seguro para la interfaz.
 
+## Flujo de autenticación SSR implementado
+
+1. `src/proxy.ts` crea un cliente Supabase por solicitud con cookies `getAll/setAll`.
+2. `getClaims()` valida la identidad y renueva tokens cuando corresponde; los encabezados de no-caché acompañan cualquier cookie renovada.
+3. Las rutas `/app/**` exigen sesión y `current_user_is_active()`; `/app/usuarios` exige además `administrator`.
+4. El layout privado llama nuevamente `getUser()` y consulta perfil/rol bajo RLS. Proxy no es la única defensa.
+5. Login, recuperación, callback y cambio de contraseña se ejecutan en servidor. Las redirecciones se reducen a una lista interna cerrada.
+6. Un usuario inactivo, aunque conserve una cookie, no supera RLS ni el control de servidor.
+
+### Clientes Supabase
+
+| Cliente | Archivo | Clave | Uso |
+| --- | --- | --- | --- |
+| Navegador | `src/lib/supabase/client.ts` | anónima | Interacción cliente futura bajo RLS |
+| Servidor SSR | `src/lib/supabase/server.ts` | anónima + JWT usuario | Server Components, acciones y RPC autorizadas |
+| Administrativo | `src/lib/supabase/admin.ts` | `service_role` | Solo Auth Admin para invitaciones |
+
+El cliente administrativo importa `server-only`, desactiva persistencia/refresh y nunca se serializa. Cambios de rol/estado no usan `service_role`: llaman RPC `security definer` con el JWT del administrador, de modo que PostgreSQL verifica actor y registra auditoría.
+
 No se usará `localStorage` como base de datos. La caché del cliente, si se incorpora, será descartable y nunca la autoridad.
 
 ## Variables de entorno
@@ -67,6 +89,7 @@ No se usará `localStorage` como base de datos. La caché del cliente, si se inc
 - `SUPABASE_SERVICE_ROLE_KEY` es exclusivamente de servidor, nunca se referencia desde módulos cliente.
 - `NEXT_PUBLIC_APP_URL` identifica el origen permitido para redirecciones.
 - `APP_TIMEZONE=America/Lima` fija la zona de negocio.
+- La validación se ejecuta cuando una funcionalidad necesita las variables, no al importar módulos. Por ello CI puede compilar sin secretos; una acción real falla con un mensaje que enumera solo nombres faltantes.
 
 ## Límites de responsabilidad
 
@@ -82,3 +105,7 @@ No se usará `localStorage` como base de datos. La caché del cliente, si se inc
 ## Estructura y evolución
 
 Los módulos se organizan por dominio en `src/features` y dependen de servicios y tipos compartidos, no unos de otros de forma circular. Las migraciones SQL serán secuenciales e inmutables. Se añadirá manifiesto PWA, service worker y estrategia offline solo en la Etapa 7; ninguna operación crítica se confirmará offline.
+
+## Estado de integración
+
+El código, migración y pruebas estáticas de Etapa 1 están implementados. Falta crear/configurar Supabase, aplicar la migración y ejecutar `supabase/tests/rls_auth_roles.sql` con usuarios ficticios. No se ha configurado Netlify ni se ha iniciado la Etapa 2.

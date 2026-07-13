@@ -1,30 +1,44 @@
 # JOR Store Operaciones
 
-Sistema interno, privado y responsive para administrar las operaciones de JOR STORE. La aplicación se construye por etapas y prioriza el uso desde celulares, la trazabilidad del inventario y la seguridad de los datos.
+Aplicación web interna, privada y móvil primero para administrar las operaciones de JOR STORE. El proyecto avanza por etapas y usa Supabase PostgreSQL como única fuente oficial de datos.
 
-> Estado actual: **Etapa 0 — inicialización y diseño técnico**. Todavía no existe autenticación funcional, conexión real con Supabase ni módulos operativos.
+> Estado actual: **Etapa 1 — autenticación, perfiles y roles implementados en código**. La conexión con un proyecto Supabase real queda pendiente de configuración manual; la Etapa 2 no ha comenzado.
 
 ## Tecnologías
 
-- Next.js con App Router y carpeta `src`.
-- React y TypeScript en modo estricto.
-- Tailwind CSS y ESLint.
-- Supabase para PostgreSQL, autenticación y almacenamiento privado en etapas posteriores.
-- React Hook Form y Zod para formularios y validación.
-- ExcelJS para importaciones y exportaciones administrativas futuras.
-- Vitest para pruebas automatizadas.
-- Netlify como hosting futuro; no está configurado en esta etapa.
+- Next.js 16 con App Router y `proxy.ts`.
+- React, TypeScript estricto, Tailwind CSS y ESLint.
+- Supabase Auth/PostgreSQL/Storage y `@supabase/ssr` para cookies SSR.
+- React Hook Form y Zod.
+- ExcelJS reservado para etapas futuras de importación/exportación.
+- Vitest y GitHub Actions.
+- Netlify como hosting futuro; no está configurado.
 
-La interfaz será en español, la moneda funcional será PEN y las fechas de negocio usarán `America/Lima`.
+La interfaz está en español, la moneda funcional es PEN y la zona de negocio es `America/Lima`.
+
+## Funcionalidad de Etapa 1
+
+- Inicio y cierre de sesión privados, sin registro público.
+- Renovación SSR de sesión mediante cookies y `getClaims()`.
+- Protección de `/app` en Proxy y nuevamente en Server Components.
+- Verificación obligatoria de perfil activo.
+- Roles `administrator` y `operator` aplicados con RLS.
+- Perfil de usuario de solo lectura para rol/estado.
+- Invitación administrativa, asignación de rol y activación/desactivación.
+- Protección contra desactivar o degradar al último administrador activo.
+- Recuperación y restablecimiento de contraseña con destinos permitidos.
+- Auditoría mínima de invitación, rol, activación, desactivación y recuperación.
+
+No se implementaron productos, inventario, compras, pedidos ni dashboard.
 
 ## Requisitos
 
-- Node.js 22 o superior.
-- npm 10 o superior.
+- Node.js 22 o superior y npm 10 o superior.
 - Git.
-- Un proyecto Supabase privado, únicamente a partir de la Etapa 1.
+- Para integración real: proyecto Supabase de desarrollo.
+- Opcional para RLS local: Supabase CLI, Docker y `psql`.
 
-## Instalación local
+## Instalación
 
 ```bash
 git clone https://github.com/aldoosorio323-gif/jor-store-operaciones.git
@@ -35,72 +49,76 @@ copy .env.example .env.local
 npm run dev
 ```
 
-La copia de variables usa `copy` en Windows. En macOS o Linux puede usarse `cp`.
+En macOS/Linux usar `cp` en lugar de `copy`. Seguir `docs/configuracion-supabase.md` antes de completar `.env.local` o aplicar migraciones.
+
+## Variables de entorno
+
+| Variable | Alcance |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | URL pública del proyecto. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave pública limitada por RLS. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Solo servidor; invitaciones administrativas. |
+| `NEXT_PUBLIC_APP_URL` | Origen permitido para callbacks. |
+| `APP_TIMEZONE` | Debe ser `America/Lima`. |
+
+La validación es diferida: `npm run build` funciona sin credenciales, pero una acción real muestra un error claro hasta configurar `.env.local`. La clave `service_role` vive en un módulo `server-only` y nunca se importa en componentes cliente.
+
+## Rutas
+
+| Ruta | Acceso |
+| --- | --- |
+| `/` | Redirige según sesión. |
+| `/login` | Pública; solo inicio de sesión. |
+| `/forgot-password` | Solicitud neutral de recuperación. |
+| `/reset-password` | Requiere sesión temporal de recuperación. |
+| `/auth/callback` | Intercambia códigos/OTP con redirección permitida. |
+| `/app` | Usuario autenticado y activo. |
+| `/app/perfil` | Perfil propio activo. |
+| `/app/usuarios` | Solo administrador activo. |
+
+No existe ruta de registro.
 
 ## Comandos
 
 | Comando | Propósito |
 | --- | --- |
-| `npm run dev` | Inicia el servidor local de Next.js. |
-| `npm run build` | Genera la compilación de producción. |
-| `npm run start` | Sirve una compilación generada. |
-| `npm run lint` | Ejecuta ESLint sin admitir advertencias. |
-| `npm run typecheck` | Verifica TypeScript sin emitir archivos. |
-| `npm run test` | Ejecuta las pruebas con Vitest; cualquier fallo devuelve código distinto de cero. |
+| `npm run dev` | Servidor local. |
+| `npm run build` | Compilación de producción sin requerir secretos básicos. |
+| `npm run start` | Sirve la compilación. |
+| `npm run lint` | ESLint sin advertencias. |
+| `npm run typecheck` | TypeScript sin emitir archivos. |
+| `npm run test` | Pruebas unitarias y verificaciones estáticas. |
 
-Antes de cada commit deben ejecutarse `lint`, `typecheck`, `test` y `build`. La prueba actual verifica la configuración base; las pruebas funcionales y de integración crecerán con cada módulo.
+GitHub Actions ejecuta `npm ci`, lint, typecheck, test y build en pushes a `desarrollo` y pull requests hacia `desarrollo` o `main`, sin secretos reales.
 
-## Variables de entorno
+## Pruebas Supabase pendientes
 
-Crear `.env.local` a partir de `.env.example`. Nunca confirmar valores reales en Git.
+Las pruebas unitarias validan formularios, rutas, roles, inactividad, redirecciones, entorno, límites de secretos y contenido de la migración. La verificación SQL real está en `supabase/tests/rls_auth_roles.sql` y necesita una base Supabase local/de desarrollo con usuarios ficticios; el comando exacto está documentado en `docs/configuracion-supabase.md`.
 
-| Variable | Uso |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | URL pública del proyecto Supabase. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima pública, limitada por RLS. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Clave solo de servidor para tareas administrativas excepcionales. |
-| `NEXT_PUBLIC_APP_URL` | URL base de la aplicación. |
-| `APP_TIMEZONE` | Zona horaria de negocio; debe ser `America/Lima`. |
+No se afirma que Auth remoto o RLS hayan sido probados: este repositorio no contiene `.env.local` ni credenciales.
 
-El prefijo `NEXT_PUBLIC_` permite que una variable llegue al navegador. La clave `service_role` nunca debe usar ese prefijo ni importarse desde componentes cliente.
+## Seguridad
 
-## Estructura inicial
-
-```text
-src/
-  app/          # Rutas, layouts y componentes de servidor de Next.js
-  components/   # Componentes reutilizables de presentación
-  features/     # Módulos organizados por dominio
-  hooks/        # Hooks reutilizables del cliente
-  lib/          # Configuración y utilidades de infraestructura
-  services/     # Casos de uso y acceso controlado a servicios externos
-  types/        # Tipos compartidos
-  utils/        # Funciones puras
-  validations/  # Esquemas Zod
-docs/           # Decisiones y diseño técnico
-supabase/       # Migraciones SQL y datos ficticios de desarrollo
-scripts/        # Automatización segura
-tests/          # Pruebas automatizadas
-```
+- Registro y acceso anónimo desactivados en la configuración manual.
+- Perfiles nuevos nacen inactivos y con rol operador; el navegador no decide el rol.
+- Ningún cliente tiene permisos directos para insertar, actualizar o borrar perfiles.
+- Funciones `security definer` fijan `search_path` vacío y verifican actor activo/administrador.
+- Movimientos y datos operativos siguen fuera de alcance de esta etapa.
+- Nunca confirmar secretos, datos reales, Excel, CSV, respaldos, bases o logs.
 
 ## Flujo de ramas
 
-- `main`: rama estable. No se trabaja directamente ni se hace merge en esta etapa.
-- `desarrollo`: rama de integración para las etapas del proyecto.
-- El trabajo se entrega en incrementos acotados y con commits deliberados.
-- No se abre pull request ni se despliega a producción durante la Etapa 0.
+- `main`: estable; no trabajar directamente.
+- `desarrollo`: integración por etapas.
+- No hay despliegue ni merge durante esta etapa.
 
-## Seguridad y datos
+## Documentación
 
-- Supabase será la única fuente oficial de datos; Excel no será base de datos.
-- No usar `localStorage` ni estructuras en memoria como persistencia definitiva.
-- No confirmar secretos, `.env.local`, credenciales, respaldos, bases locales, logs, Excel, CSV ni datos reales de clientes.
-- El registro público estará desactivado y todas las tablas expuestas usarán Row Level Security.
-- Los comprobantes e imágenes privadas vivirán en buckets privados.
-- Ninguna operación de stock se hará sin movimiento inmutable y transacción PostgreSQL.
+- `docs/configuracion-supabase.md`: configuración, migraciones y primer administrador.
+- `docs/arquitectura.md`: límites y flujo SSR.
+- `docs/seguridad.md`: controles implementados y pendientes.
+- `docs/modelo-datos.md`: modelo relacional general.
+- `docs/plan-implementacion.md`: etapas y estado.
+- `docs/reglas-inventario.md`: invariantes futuras de inventario.
 
-Consultar [AGENTS.md](AGENTS.md) y la documentación en [docs/](docs/) antes de implementar una etapa.
-
-## Estado y próximas etapas
-
-La Etapa 0 define la arquitectura, el modelo relacional, las reglas de inventario, seguridad y migración futura desde Excel. La siguiente etapa recomendada es **Etapa 1: autenticación y roles**, sin iniciarla hasta que se solicite expresamente.
+La siguiente etapa prevista es **Etapa 2: productos, variantes y almacenes**, pero no debe iniciarse sin una solicitud expresa.
