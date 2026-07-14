@@ -29,6 +29,7 @@ import type {
   TransferDetail,
   TransferItem,
 } from "@/types/inventory";
+import { formatDateTimeLocalInLima } from "@/features/inventory/lima-time";
 import {
   inventoryAdjustmentSchema,
   purchaseItemSchema,
@@ -86,7 +87,7 @@ export function PurchaseForm({ suppliers, purchase }: { suppliers: SelectOption[
   const state = useMutationResult();
   const { register, handleSubmit } = useForm<PurchaseValues>({ defaultValues: {
     supplierId: purchase?.supplierId ?? "", supplierReference: purchase?.supplierReference ?? "",
-    orderedAt: purchase ? purchase.orderedAt.slice(0, 16) : new Date().toISOString().slice(0, 16),
+    orderedAt: formatDateTimeLocalInLima(purchase?.orderedAt ?? new Date()) ?? "",
     expectedAt: purchase?.expectedAt ?? "", notes: purchase?.notes ?? "",
   } });
   return <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
@@ -121,33 +122,33 @@ export function PurchaseItemForm({ purchaseId, variants, item, nextLine }: {
       if (!item) reset({ lineNumber: nextLine + 1, variantId: "", orderedQuantity: 1, unitCost: 0, taxAmount: 0 });
     });
   })}>
-    <Field label="LÃ­nea"><input {...register("lineNumber", { valueAsNumber: true })} type="number" min="1" required className={inputClass} /></Field>
+    <Field label="Línea"><input {...register("lineNumber", { valueAsNumber: true })} type="number" min="1" required className={inputClass} /></Field>
     <Field label="Variante"><select {...register("variantId")} required className={inputClass}><option value="">Selecciona</option>{variants.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
     <Field label="Cantidad"><input {...register("orderedQuantity", { valueAsNumber: true })} type="number" min="0.001" step="0.001" required className={inputClass} /></Field>
     <Field label="Costo unitario"><input {...register("unitCost", { valueAsNumber: true })} type="number" min="0" step="0.0001" required className={inputClass} /></Field>
     <Field label="Impuesto"><input {...register("taxAmount", { valueAsNumber: true })} type="number" min="0" step="0.01" required className={inputClass} /></Field>
     <div className="sm:col-span-5"><Message result={state.result} /></div>
-    <button disabled={state.pending} className={`${primaryClass} sm:col-span-5`}>{state.pending ? "Guardando…" : item ? "Actualizar lÃ­nea" : "AÃ±adir lÃ­nea"}</button>
+    <button disabled={state.pending} className={`${primaryClass} sm:col-span-5`}>{state.pending ? "Guardando…" : item ? "Actualizar línea" : "Añadir línea"}</button>
   </form>;
 }
 
 export function RemovePurchaseItemButton({ id }: { id: string }) {
   const state = useMutationResult();
   return <div><button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-    if (!window.confirm("Â¿Confirmas que deseas retirar esta lÃ­nea del borrador?")) return;
+    if (!window.confirm("¿Confirmas que deseas retirar esta línea del borrador?")) return;
     state.run(() => removePurchaseItemAction(id));
-  }}>{state.pending ? "Retirando…" : "Retirar lÃ­nea"}</button><Message result={state.result} /></div>;
+  }}>{state.pending ? "Retirando…" : "Retirar línea"}</button><Message result={state.result} /></div>;
 }
 
 export function PurchaseActions({ id, canConfirm, canCancel }: { id: string; canConfirm: boolean; canCancel: boolean }) {
   const state = useMutationResult();
   return <div className="flex flex-wrap gap-3">
     {canConfirm ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => {
-      if (!window.confirm("Â¿Confirmas la compra? La cabecera y sus lÃ­neas quedarÃ¡n congeladas.")) return;
+      if (!window.confirm("¿Confirmas la compra? La cabecera y sus líneas quedarán congeladas.")) return;
       state.run(() => confirmPurchaseAction(id));
     }}>Confirmar compra</button> : null}
     {canCancel ? <button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-      if (!window.confirm("Â¿Confirmas la cancelaciÃ³n? Solo es posible antes de recibir stock.")) return;
+      if (!window.confirm("¿Confirmas la cancelación? Solo es posible antes de recibir stock.")) return;
       state.run(() => cancelPurchaseAction(id));
     }}>Cancelar compra</button> : null}
     <div className="basis-full"><Message result={state.result} /></div>
@@ -162,10 +163,10 @@ export function PurchaseReceiptForm({ item, locations }: { item: PurchaseItem; l
   return <form className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]" onSubmit={handleSubmit((values) => {
     const parsed = purchaseReceiptSchema.safeParse({ ...values, purchaseItemId: item.id, idempotencyKey: idempotency.get() });
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
-    if (!window.confirm(`Â¿Registrar la recepciÃ³n de ${parsed.data.quantity} unidades?`)) return;
+    if (!window.confirm(`¿Registrar la recepción de ${parsed.data.quantity} unidades?`)) return;
     state.run(() => receivePurchaseItemAction(parsed.data), idempotency.rotate);
   })}>
-    <Field label="UbicaciÃ³n de recepciÃ³n"><select {...register("locationId")} required className={inputClass}><option value="">Selecciona almacÃ©n y ubicaciÃ³n</option>{locations.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
+    <Field label="Ubicación de recepción"><select {...register("locationId")} required className={inputClass}><option value="">Selecciona almacén y ubicación</option>{locations.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
     <Field label="Cantidad"><input {...register("quantity", { valueAsNumber: true })} type="number" min="0.001" max={pendingQuantity} step="0.001" required className={inputClass} /></Field>
     <button disabled={state.pending} className={`${primaryClass} self-end`}>{state.pending ? "Recibiendo…" : "Recibir"}</button>
     <div className="sm:col-span-3"><Message result={state.result} /></div>
@@ -185,8 +186,8 @@ export function TransferForm({ warehouses, transfer }: { warehouses: SelectOptio
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
     state.run(() => saveTransferAction(transfer?.id ?? null, parsed.data));
   })}>
-    <Field label="AlmacÃ©n origen"><select {...register("originWarehouseId")} required className={inputClass}><option value="">Selecciona</option>{warehouses.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
-    <Field label="AlmacÃ©n destino"><select {...register("destinationWarehouseId")} required className={inputClass}><option value="">Selecciona</option>{warehouses.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
+    <Field label="Almacén origen"><select {...register("originWarehouseId")} required className={inputClass}><option value="">Selecciona</option>{warehouses.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
+    <Field label="Almacén destino"><select {...register("destinationWarehouseId")} required className={inputClass}><option value="">Selecciona</option>{warehouses.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
     <label className="text-sm font-medium text-neutral-700 sm:col-span-2">Notas<textarea {...register("notes")} rows={3} className={inputClass} /></label>
     <div className="sm:col-span-2"><Message result={state.result} /></div>
     <button disabled={state.pending} className={`${primaryClass} sm:col-span-2`}>{state.pending ? "Guardando…" : transfer ? "Guardar transferencia" : "Crear transferencia"}</button>
@@ -213,22 +214,22 @@ export function TransferItemForm({ transfer, variants, locations, item, nextLine
       if (!item) reset({ lineNumber: nextLine + 1, variantId: "", originLocationId: "", destinationLocationId: "", requestedQuantity: 1 });
     });
   })}>
-    <Field label="LÃ­nea"><input {...register("lineNumber", { valueAsNumber: true })} type="number" min="1" className={inputClass} /></Field>
+    <Field label="Línea"><input {...register("lineNumber", { valueAsNumber: true })} type="number" min="1" className={inputClass} /></Field>
     <Field label="Variante"><select {...register("variantId")} required className={inputClass}><option value="">Selecciona</option>{variants.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
-    <Field label="UbicaciÃ³n origen"><select {...register("originLocationId")} required className={inputClass}><option value="">Selecciona</option>{origins.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
-    <Field label="UbicaciÃ³n destino"><select {...register("destinationLocationId")} required className={inputClass}><option value="">Selecciona</option>{destinations.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
+    <Field label="Ubicación origen"><select {...register("originLocationId")} required className={inputClass}><option value="">Selecciona</option>{origins.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
+    <Field label="Ubicación destino"><select {...register("destinationLocationId")} required className={inputClass}><option value="">Selecciona</option>{destinations.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
     <Field label="Cantidad"><input {...register("requestedQuantity", { valueAsNumber: true })} type="number" min="0.001" step="0.001" required className={inputClass} /></Field>
     <div className="sm:col-span-5"><Message result={state.result} /></div>
-    <button disabled={state.pending} className={`${primaryClass} sm:col-span-5`}>{state.pending ? "Guardando…" : item ? "Actualizar lÃ­nea" : "AÃ±adir lÃ­nea"}</button>
+    <button disabled={state.pending} className={`${primaryClass} sm:col-span-5`}>{state.pending ? "Guardando…" : item ? "Actualizar línea" : "Añadir línea"}</button>
   </form>;
 }
 
 export function RemoveTransferItemButton({ id }: { id: string }) {
   const state = useMutationResult();
   return <div><button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-    if (!window.confirm("Â¿Confirmas que deseas retirar esta lÃ­nea del borrador?")) return;
+    if (!window.confirm("¿Confirmas que deseas retirar esta línea del borrador?")) return;
     state.run(() => removeTransferItemAction(id));
-  }}>{state.pending ? "Retirando…" : "Retirar lÃ­nea"}</button><Message result={state.result} /></div>;
+  }}>{state.pending ? "Retirando…" : "Retirar línea"}</button><Message result={state.result} /></div>;
 }
 
 export function TransferActions({ transfer }: { transfer: TransferDetail }) {
@@ -236,15 +237,15 @@ export function TransferActions({ transfer }: { transfer: TransferDetail }) {
   const idempotency = useIdempotencyKey();
   return <div className="flex flex-wrap gap-3">
     {transfer.status === "draft" ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => {
-      if (!window.confirm("Â¿Confirmas la transferencia? La cabecera y sus lÃ­neas quedarÃ¡n congeladas.")) return;
+      if (!window.confirm("¿Confirmas la transferencia? La cabecera y sus líneas quedarán congeladas.")) return;
       state.run(() => confirmTransferAction(transfer.id));
     }}>Confirmar</button> : null}
     {transfer.status === "confirmed" ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => {
-      if (!window.confirm("Â¿Despachar todas las lÃ­neas? El stock saldrÃ¡ del origen y quedarÃ¡ en trÃ¡nsito.")) return;
+      if (!window.confirm("¿Despachar todas las líneas? El stock saldrá del origen y quedará en tránsito.")) return;
       state.run(() => dispatchTransferAction(transfer.id, idempotency.get()), idempotency.rotate);
     }}>Despachar</button> : null}
     {["draft", "confirmed"].includes(transfer.status) ? <button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-      if (!window.confirm("Â¿Confirmas la cancelaciÃ³n de la transferencia?")) return;
+      if (!window.confirm("¿Confirmas la cancelación de la transferencia?")) return;
       state.run(() => cancelTransferAction(transfer.id));
     }}>Cancelar</button> : null}
     <div className="basis-full"><Message result={state.result} /></div>
@@ -259,7 +260,7 @@ export function TransferReceiptForm({ item }: { item: TransferItem }) {
   return <form className="flex flex-wrap items-end gap-3" onSubmit={handleSubmit((values) => {
     const parsed = transferReceiptSchema.safeParse({ ...values, transferItemId: item.id, idempotencyKey: idempotency.get() });
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
-    if (!window.confirm(`Â¿Registrar la recepciÃ³n de ${parsed.data.quantity} unidades en destino?`)) return;
+    if (!window.confirm(`¿Registrar la recepción de ${parsed.data.quantity} unidades en destino?`)) return;
     state.run(() => receiveTransferItemAction(parsed.data), idempotency.rotate);
   })}>
     <Field label="Cantidad a recibir"><input {...register("quantity", { valueAsNumber: true })} type="number" min="0.001" max={pendingQuantity} step="0.001" className={inputClass} /></Field>
@@ -284,18 +285,18 @@ export function InventoryAdjustmentForm({ selectedVariant, selectedLocation, bal
   return <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
     const parsed = inventoryAdjustmentSchema.safeParse({ ...values, unitCost: needsCost ? values.unitCost : null, idempotencyKey: idempotency.get() });
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
-    if (!window.confirm(`Â¿Confirmas el ajuste sobre el saldo fÃ­sico actual ${balance?.physicalStock ?? 0}?`)) return;
+    if (!window.confirm(`¿Confirmas el ajuste sobre el saldo físico actual ${balance?.physicalStock ?? 0}?`)) return;
     state.run(() => adjustInventoryAction(parsed.data), idempotency.rotate);
   })}>
     <input type="hidden" {...register("variantId")} />
     <input type="hidden" {...register("locationId")} />
     <div className="rounded-xl border border-neutral-200 p-4 text-sm"><span className="text-neutral-500">Variante</span><p className="mt-1 font-semibold">{selectedVariant.label}</p></div>
-    <div className="rounded-xl border border-neutral-200 p-4 text-sm"><span className="text-neutral-500">AlmacÃ©n y ubicaciÃ³n</span><p className="mt-1 font-semibold">{selectedLocation.label}</p></div>
-    <div className="rounded-xl bg-neutral-100 p-4 text-sm sm:col-span-2"><strong>Saldo actual:</strong> fÃ­sico {balance?.physicalStock ?? 0}, reservado {balance?.reservedStock ?? 0}, disponible {balance?.availableStock ?? 0}. El saldo final no es editable.</div>
-    <Field label="Tipo"><select {...register("movementType")} className={inputClass}><option value="initial_stock">Stock inicial</option><option value="positive_adjustment">Ajuste positivo</option><option value="negative_adjustment">Ajuste negativo</option><option value="damaged">DaÃ±ado</option><option value="lost">Perdido</option></select></Field>
+    <div className="rounded-xl border border-neutral-200 p-4 text-sm"><span className="text-neutral-500">Almacén y ubicación</span><p className="mt-1 font-semibold">{selectedLocation.label}</p></div>
+    <div className="rounded-xl bg-neutral-100 p-4 text-sm sm:col-span-2"><strong>Saldo actual:</strong> físico {balance?.physicalStock ?? 0}, reservado {balance?.reservedStock ?? 0}, disponible {balance?.availableStock ?? 0}. El saldo final no es editable.</div>
+    <Field label="Tipo"><select {...register("movementType")} className={inputClass}><option value="initial_stock">Stock inicial</option><option value="positive_adjustment">Ajuste positivo</option><option value="negative_adjustment">Ajuste negativo</option><option value="damaged">Dañado</option><option value="lost">Perdido</option></select></Field>
     <Field label="Cantidad positiva"><input {...register("quantity", { valueAsNumber: true })} type="number" min="0.001" step="0.001" required className={inputClass} /></Field>
     {needsCost ? <Field label="Costo unitario"><input {...register("unitCost", { valueAsNumber: true })} type="number" min="0" step="0.0001" required className={inputClass} /></Field> : null}
-    <label className="text-sm font-medium text-neutral-700 sm:col-span-2">RazÃ³n<textarea {...register("reason")} rows={3} required className={inputClass} /></label>
+    <label className="text-sm font-medium text-neutral-700 sm:col-span-2">Razón<textarea {...register("reason")} rows={3} required className={inputClass} /></label>
     <div className="sm:col-span-2"><Message result={state.result} /></div>
     <button disabled={state.pending} className={`${primaryClass} sm:col-span-2`}>{state.pending ? "Registrando…" : "Registrar ajuste"}</button>
   </form>;

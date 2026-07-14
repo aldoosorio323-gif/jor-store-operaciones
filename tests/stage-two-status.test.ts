@@ -17,7 +17,7 @@ describe("estado documental de Etapa 2", () => {
   it("registra la migración 003 aplicada y no conserva estados remotos pendientes", () => {
     for (const { file, source } of documentation) {
       expect(source, file).toContain("003");
-      expect(source, file).not.toMatch(/migraciÃ³n\s+003\s+(pendiente|sin aplicar)/i);
+      expect(source, file).not.toMatch(/migración\s+003\s+(pendiente|sin aplicar)/i);
     }
 
     expect(documentation[0]?.source).toContain("Etapa 3 — compras e inventario implementados en código");

@@ -3,7 +3,7 @@ import type { MovementType, PurchaseStatus, TransferStatus } from "@/types/datab
 export const purchaseStatusLabels: Record<PurchaseStatus, string> = {
   draft: "Borrador",
   confirmed: "Confirmada",
-  partially_received: "RecepciÃ³n parcial",
+  partially_received: "Recepción parcial",
   received: "Recibida",
   cancelled: "Cancelada",
 };
@@ -11,21 +11,21 @@ export const purchaseStatusLabels: Record<PurchaseStatus, string> = {
 export const transferStatusLabels: Record<TransferStatus, string> = {
   draft: "Borrador",
   confirmed: "Confirmada",
-  in_transit: "En trÃ¡nsito",
-  partially_received: "RecepciÃ³n parcial",
+  in_transit: "En tránsito",
+  partially_received: "Recepción parcial",
   received: "Recibida",
   cancelled: "Cancelada",
 };
 
 export const movementTypeLabels: Record<MovementType, string> = {
   purchase_entry: "Entrada por compra",
-  supplier_return: "DevoluciÃ³n a proveedor",
+  supplier_return: "Devolución a proveedor",
   transfer_out: "Salida por transferencia",
   transfer_in: "Entrada por transferencia",
   positive_adjustment: "Ajuste positivo",
   negative_adjustment: "Ajuste negativo",
-  damaged: "MercaderÃ­a daÃ±ada",
-  lost: "MercaderÃ­a perdida",
+  damaged: "Mercadería dañada",
+  lost: "Mercadería perdida",
   initial_stock: "Stock inicial",
 };
 
@@ -44,7 +44,7 @@ export function calculateWeightedAverage(
   incomingCost: number,
 ): number {
   if (previousStock < 0 || previousAverage < 0 || incomingQuantity <= 0 || incomingCost < 0) {
-    throw new Error("Valores de costo promedio no vÃ¡lidos.");
+    throw new Error("Valores de costo promedio no válidos.");
   }
   if (previousStock === 0) return Number(incomingCost.toFixed(4));
   return Number(

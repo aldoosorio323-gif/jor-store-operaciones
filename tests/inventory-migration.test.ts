@@ -6,8 +6,8 @@ const migration = readFileSync(path.resolve("supabase/migrations/202607130004_pu
 const sqlChecks = readFileSync(path.resolve("supabase/tests/rls_inventory.sql"), "utf8");
 const tables = ["purchases", "purchase_items", "inventory_balances", "inventory_movements", "inventory_transfers", "inventory_transfer_items"];
 
-describe("migraciÃ³n de compras e inventario", () => {
-  it("crea tipos, tablas, RLS y ninguna polÃ­tica DELETE universal", () => {
+describe("migración de compras e inventario", () => {
+  it("crea tipos, tablas, RLS y ninguna política DELETE universal", () => {
     for (const type of ["purchase_status", "transfer_status", "movement_type"]) expect(migration).toContain(`create type public.${type}`);
     for (const table of tables) {
       expect(migration).toContain(`create table public.${table}`);
@@ -28,7 +28,7 @@ describe("migraciÃ³n de compras e inventario", () => {
     expect(migration).toContain("Los movimientos de inventario son inmutables");
   });
 
-  it("centraliza balance y movimiento con bloqueo, versiÃ³n y promedio ponderado", () => {
+  it("centraliza balance y movimiento con bloqueo, versión y promedio ponderado", () => {
     const body = migration.match(/create or replace function private\.apply_inventory_movement\([\s\S]*?\n\$\$;/)?.[0] ?? "";
     expect(body).toContain("for update");
     expect(body).toContain("version = version + 1");
@@ -38,6 +38,8 @@ describe("migraciÃ³n de compras e inventario", () => {
     expect(body).toContain("resulting_physical < balance_row.reserved_stock");
     expect(body).toContain("p_movement_type = 'initial_stock'");
     expect(body).toContain("select 1 from public.inventory_movements");
+    expect(body.match(/for share/g)?.length).toBeGreaterThanOrEqual(4);
+    expect(body).toContain("variante, almacén y ubicación");
     expect(migration).toContain("revoke all on function private.apply_inventory_movement");
   });
 
@@ -47,24 +49,39 @@ describe("migraciÃ³n de compras e inventario", () => {
       "inventory_balances_granularity_unique", "inventory_movements_physical_equation",
       "inventory_movements_reserved_equation", "inventory_movements_reference_valid",
       "inventory_movements_idempotency_unique_idx", "warehouse_locations_warehouse_id_id_unique",
+      "inventory_balances_id_granularity_unique", "inventory_movements_balance_identity_fkey",
+      "purchase_items_purchase_id_id_unique", "inventory_movements_purchase_line_fkey",
+      "inventory_transfer_items_transfer_id_id_unique", "inventory_movements_transfer_line_fkey",
     ]) expect(migration).toContain(fragment);
     expect(migration).toContain("reserved_delta = 0");
   });
 
-  it("implementa RPC crÃ­ticas, estados cerrados y congelamiento", () => {
+  it("impide desactivar catálogos con stock u operaciones abiertas", () => {
+    for (const message of [
+      "No se puede desactivar una variante con stock físico o reservado.",
+      "No se puede desactivar una ubicación con stock físico o reservado.",
+      "No se puede desactivar una variante con cantidades pendientes de recepción.",
+      "No se puede desactivar una variante vinculada a una transferencia abierta.",
+      "No se puede desactivar una ubicación vinculada a una transferencia abierta.",
+      "No se puede desactivar un almacén vinculado a una transferencia abierta.",
+    ]) expect(migration).toContain(message);
+    expect(migration).toContain("security definer\nset search_path = ''");
+  });
+
+  it("implementa RPC críticas, estados cerrados y congelamiento", () => {
     for (const rpc of [
       "confirm_purchase", "receive_purchase_item", "confirm_inventory_transfer",
       "dispatch_inventory_transfer", "receive_inventory_transfer_item", "adjust_inventory",
       "admin_inventory_reconciliation",
     ]) expect(migration).toContain(`function public.${rpc}`);
     expect(migration).toContain("Una compra confirmada no admite cambios comerciales");
-    expect(migration).toContain("Las lÃ­neas de una compra confirmada estÃ¡n congeladas");
+    expect(migration).toContain("Las líneas de una compra confirmada están congeladas");
     expect(migration).toContain("Una transferencia confirmada no admite cambios comerciales");
-    expect(migration).toContain("Retira o actualiza las lÃ­neas antes de cambiar los almacenes");
+    expect(migration).toContain("Retira o actualiza las líneas antes de cambiar los almacenes");
     expect(migration).toContain("order by i.origin_location_id, i.variant_id, i.id");
   });
 
-  it("hace idempotentes recepciones, despachos y ajustes sin filtrar claves a auditorÃ­a", () => {
+  it("hace idempotentes recepciones, despachos y ajustes sin filtrar claves a auditoría", () => {
     expect(migration).toContain("private.inventory_commands");
     expect(migration).toContain("payload_hash");
     expect(migration).toContain("extensions.digest(p_payload::text, 'sha256')");
@@ -73,7 +90,7 @@ describe("migraciÃ³n de compras e inventario", () => {
     for (const insert of auditInserts) expect(insert).not.toContain("p_idempotency_key");
   });
 
-  it("aplica permisos operativos y reserva ajustes/conciliaciÃ³n al administrador", () => {
+  it("aplica permisos operativos y reserva ajustes/conciliación al administrador", () => {
     expect(migration).toContain("current_user_role()) in ('administrator', 'operator')");
     expect(migration).toContain("private.assert_inventory_operator(true)");
     expect(migration).toContain("inventory_balances_select_active_staff");
@@ -92,6 +109,11 @@ describe("migraciÃ³n de compras e inventario", () => {
       "idempotent_replay", "destination_still_empty", "operator_adjustment",
       "direct_balance_update", "movement_delete", "admin_inventory_reconciliation",
       "multiline_rollback_complete", "one_transfer_out",
+      "variant_with_stock_deactivation", "location_with_stock_deactivation",
+      "variant_pending_purchase_deactivation", "variant_open_transfer_deactivation",
+      "location_open_transfer_deactivation", "balance_identity_mismatch",
+      "purchase_line_identity_mismatch", "transfer_line_identity_mismatch",
+      "movement_deactivation_concurrency_two_connections",
     ]) expect(sqlChecks).toContain(fragment);
     expect(sqlChecks).toContain("completamente fictici");
     expect(sqlChecks.toLowerCase()).toContain("rollback;");

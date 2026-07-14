@@ -92,7 +92,8 @@ create table public.purchase_items (
   constraint purchase_items_cost_nonnegative check (unit_cost >= 0 and tax_amount >= 0),
   constraint purchase_items_totals_nonnegative check (line_subtotal >= 0 and line_total >= 0),
   constraint purchase_items_line_total_consistent check (line_total = line_subtotal + tax_amount),
-  constraint purchase_items_line_unique unique (purchase_id, line_number)
+  constraint purchase_items_line_unique unique (purchase_id, line_number),
+  constraint purchase_items_purchase_id_id_unique unique (purchase_id, id)
 );
 
 create table public.inventory_balances (
@@ -116,7 +117,8 @@ create table public.inventory_balances (
   ),
   constraint inventory_balances_cost_nonnegative check (average_unit_cost >= 0),
   constraint inventory_balances_version_nonnegative check (version >= 0),
-  constraint inventory_balances_granularity_unique unique (variant_id, warehouse_id, location_id)
+  constraint inventory_balances_granularity_unique unique (variant_id, warehouse_id, location_id),
+  constraint inventory_balances_id_granularity_unique unique (id, variant_id, warehouse_id, location_id)
 );
 
 create table public.inventory_transfers (
@@ -174,7 +176,8 @@ create table public.inventory_transfer_items (
     and received_quantity >= 0 and received_quantity <= dispatched_quantity
   ),
   constraint inventory_transfer_items_locations_different check (origin_location_id <> destination_location_id),
-  constraint inventory_transfer_items_line_unique unique (transfer_id, line_number)
+  constraint inventory_transfer_items_line_unique unique (transfer_id, line_number),
+  constraint inventory_transfer_items_transfer_id_id_unique unique (transfer_id, id)
 );
 
 create table public.inventory_movements (
@@ -205,6 +208,15 @@ create table public.inventory_movements (
   created_by uuid not null references public.profiles (id) on delete restrict,
   constraint inventory_movements_location_fkey foreign key (warehouse_id, location_id)
     references public.warehouse_locations (warehouse_id, id) on delete restrict,
+  constraint inventory_movements_balance_identity_fkey
+    foreign key (balance_id, variant_id, warehouse_id, location_id)
+    references public.inventory_balances (id, variant_id, warehouse_id, location_id) on delete restrict,
+  constraint inventory_movements_purchase_line_fkey
+    foreign key (purchase_id, purchase_item_id)
+    references public.purchase_items (purchase_id, id) on delete restrict,
+  constraint inventory_movements_transfer_line_fkey
+    foreign key (transfer_id, transfer_item_id)
+    references public.inventory_transfer_items (transfer_id, id) on delete restrict,
   constraint inventory_movements_delta_nonzero check (physical_delta <> 0 or reserved_delta <> 0),
   constraint inventory_movements_physical_equation check (previous_physical + physical_delta = resulting_physical),
   constraint inventory_movements_reserved_equation check (previous_reserved + reserved_delta = resulting_reserved),
@@ -246,6 +258,133 @@ create table private.inventory_commands (
   constraint inventory_commands_result_object check (result is null or jsonb_typeof(result) = 'object')
 );
 revoke all on table private.inventory_commands from public, anon, authenticated;
+
+create or replace function private.normalize_product_variant()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.sku := upper(btrim(new.sku));
+  new.name := btrim(new.name);
+  new.color := nullif(btrim(new.color), '');
+  new.barcode := nullif(btrim(new.barcode), '');
+
+  if tg_op = 'UPDATE' and new.product_id is distinct from old.product_id then
+    raise exception 'No se puede cambiar el producto de una variante.' using errcode = '23514';
+  end if;
+  if new.is_active and not exists (
+    select 1 from public.products p where p.id = new.product_id and p.is_active
+  ) then
+    raise exception 'No se puede activar una variante de un producto inactivo.' using errcode = '23514';
+  end if;
+  if tg_op = 'UPDATE' and old.is_active and not new.is_active then
+    if exists (
+      select 1 from public.inventory_balances b
+      where b.variant_id = old.id and (b.physical_stock > 0 or b.reserved_stock > 0)
+    ) then
+      raise exception 'No se puede desactivar una variante con stock físico o reservado.' using errcode = '23514';
+    end if;
+    if exists (
+      select 1
+      from public.purchase_items i
+      join public.purchases p on p.id = i.purchase_id
+      where i.variant_id = old.id
+        and p.status in ('confirmed', 'partially_received')
+        and i.received_quantity < i.ordered_quantity
+    ) then
+      raise exception 'No se puede desactivar una variante con cantidades pendientes de recepción.' using errcode = '23514';
+    end if;
+    if exists (
+      select 1
+      from public.inventory_transfer_items i
+      join public.inventory_transfers t on t.id = i.transfer_id
+      where i.variant_id = old.id
+        and t.status in ('confirmed', 'in_transit', 'partially_received')
+    ) then
+      raise exception 'No se puede desactivar una variante vinculada a una transferencia abierta.' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function private.normalize_warehouse_location()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.code := upper(btrim(new.code));
+  new.name := btrim(new.name);
+
+  if tg_op = 'UPDATE' and new.warehouse_id is distinct from old.warehouse_id then
+    raise exception 'No se puede cambiar el almacén de una ubicación.' using errcode = '23514';
+  end if;
+  if new.is_active and not exists (
+    select 1 from public.warehouses w where w.id = new.warehouse_id and w.is_active
+  ) then
+    raise exception 'No se puede activar una ubicación de un almacén inactivo.' using errcode = '23514';
+  end if;
+  if tg_op = 'UPDATE' and old.is_active and not new.is_active then
+    if exists (
+      select 1 from public.inventory_balances b
+      where b.location_id = old.id and (b.physical_stock > 0 or b.reserved_stock > 0)
+    ) then
+      raise exception 'No se puede desactivar una ubicación con stock físico o reservado.' using errcode = '23514';
+    end if;
+    if exists (
+      select 1
+      from public.inventory_transfer_items i
+      join public.inventory_transfers t on t.id = i.transfer_id
+      where (i.origin_location_id = old.id or i.destination_location_id = old.id)
+        and t.status in ('confirmed', 'in_transit', 'partially_received')
+    ) then
+      raise exception 'No se puede desactivar una ubicación vinculada a una transferencia abierta.' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function private.normalize_warehouse()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  new.code := upper(btrim(new.code));
+  new.name := btrim(new.name);
+  new.description := nullif(btrim(new.description), '');
+  new.address := nullif(btrim(new.address), '');
+
+  if tg_op = 'UPDATE' and old.is_active and not new.is_active then
+    if exists (
+      select 1 from public.warehouse_locations l
+      where l.warehouse_id = old.id and l.is_active
+    ) then
+      raise exception 'No se puede desactivar un almacén con ubicaciones activas.' using errcode = '23514';
+    end if;
+    if exists (
+      select 1 from public.inventory_balances b
+      where b.warehouse_id = old.id and (b.physical_stock > 0 or b.reserved_stock > 0)
+    ) then
+      raise exception 'No se puede desactivar un almacén con stock físico o reservado.' using errcode = '23514';
+    end if;
+    if exists (
+      select 1 from public.inventory_transfers t
+      where (t.origin_warehouse_id = old.id or t.destination_warehouse_id = old.id)
+        and t.status in ('confirmed', 'in_transit', 'partially_received')
+    ) then
+      raise exception 'No se puede desactivar un almacén vinculado a una transferencia abierta.' using errcode = '23514';
+    end if;
+  end if;
+  return new;
+end;
+$$;
 
 create unique index purchases_number_unique_idx on public.purchases (purchase_number);
 create unique index purchases_supplier_reference_unique_idx
@@ -292,7 +431,7 @@ begin
     raise exception 'Usuario no autorizado.' using errcode = '42501';
   end if;
   if p_admin_only and actor_role <> 'administrator' then
-    raise exception 'AcciÃ³n reservada para administradores activos.' using errcode = '42501';
+    raise exception 'Acción reservada para administradores activos.' using errcode = '42501';
   end if;
   return actor_id;
 end;
@@ -386,12 +525,12 @@ begin
 
   if tg_op = 'INSERT' then
     if parent_status <> 'draft' then
-      raise exception 'Solo se pueden aÃ±adir lÃ­neas a una compra en borrador.' using errcode = '23514';
+      raise exception 'Solo se pueden añadir líneas a una compra en borrador.' using errcode = '23514';
     end if;
     new.received_quantity := 0;
   else
     if new.purchase_id is distinct from old.purchase_id then
-      raise exception 'No se puede cambiar la compra de una lÃ­nea.' using errcode = '23514';
+      raise exception 'No se puede cambiar la compra de una línea.' using errcode = '23514';
     end if;
     if parent_status <> 'draft' and (
       new.line_number is distinct from old.line_number
@@ -400,7 +539,7 @@ begin
       or new.unit_cost is distinct from old.unit_cost
       or new.tax_amount is distinct from old.tax_amount
     ) then
-      raise exception 'Las lÃ­neas de una compra confirmada estÃ¡n congeladas.' using errcode = '23514';
+      raise exception 'Las líneas de una compra confirmada están congeladas.' using errcode = '23514';
     end if;
   end if;
 
@@ -427,12 +566,12 @@ as $$
 begin
   perform private.assert_inventory_operator(false);
   if not exists (select 1 from public.purchases p where p.id = old.purchase_id and p.status = 'draft') then
-    raise exception 'Solo se pueden retirar lÃ­neas de una compra en borrador.' using errcode = '23514';
+    raise exception 'Solo se pueden retirar líneas de una compra en borrador.' using errcode = '23514';
   end if;
   if old.received_quantity <> 0 or exists (
     select 1 from public.inventory_movements m where m.purchase_item_id = old.id
   ) then
-    raise exception 'No se puede retirar una lÃ­nea con historial.' using errcode = '23514';
+    raise exception 'No se puede retirar una línea con historial.' using errcode = '23514';
   end if;
   return old;
 end;
@@ -557,7 +696,7 @@ begin
       and (origin.warehouse_id <> new.origin_warehouse_id
         or destination.warehouse_id <> new.destination_warehouse_id)
   ) then
-    raise exception 'Retira o actualiza las lÃ­neas antes de cambiar los almacenes.' using errcode = '23514';
+    raise exception 'Retira o actualiza las líneas antes de cambiar los almacenes.' using errcode = '23514';
   end if;
   return new;
 end;
@@ -576,13 +715,13 @@ begin
   if not found then raise exception 'Transferencia no encontrada.' using errcode = 'P0002'; end if;
   if tg_op = 'INSERT' then
     if transfer_row.status <> 'draft' then
-      raise exception 'Solo se pueden aÃ±adir lÃ­neas a una transferencia en borrador.' using errcode = '23514';
+      raise exception 'Solo se pueden añadir líneas a una transferencia en borrador.' using errcode = '23514';
     end if;
     new.dispatched_quantity := 0;
     new.received_quantity := 0;
   else
     if new.transfer_id is distinct from old.transfer_id then
-      raise exception 'No se puede cambiar la transferencia de una lÃ­nea.' using errcode = '23514';
+      raise exception 'No se puede cambiar la transferencia de una línea.' using errcode = '23514';
     end if;
     if transfer_row.status <> 'draft' and (
       new.line_number is distinct from old.line_number
@@ -591,7 +730,7 @@ begin
       or new.destination_location_id is distinct from old.destination_location_id
       or new.requested_quantity is distinct from old.requested_quantity
     ) then
-      raise exception 'Las lÃ­neas de una transferencia confirmada estÃ¡n congeladas.' using errcode = '23514';
+      raise exception 'Las líneas de una transferencia confirmada están congeladas.' using errcode = '23514';
     end if;
   end if;
   if transfer_row.status = 'draft' and not exists (
@@ -604,7 +743,7 @@ begin
       and origin.is_active and origin.warehouse_id = transfer_row.origin_warehouse_id
       and destination.is_active and destination.warehouse_id = transfer_row.destination_warehouse_id
   ) then
-    raise exception 'La variante o las ubicaciones no son vÃ¡lidas para la transferencia.' using errcode = '23514';
+    raise exception 'La variante o las ubicaciones no son válidas para la transferencia.' using errcode = '23514';
   end if;
   return new;
 end;
@@ -619,12 +758,12 @@ as $$
 begin
   perform private.assert_inventory_operator(false);
   if not exists (select 1 from public.inventory_transfers t where t.id = old.transfer_id and t.status = 'draft') then
-    raise exception 'Solo se pueden retirar lÃ­neas de una transferencia en borrador.' using errcode = '23514';
+    raise exception 'Solo se pueden retirar líneas de una transferencia en borrador.' using errcode = '23514';
   end if;
   if old.dispatched_quantity <> 0 or old.received_quantity <> 0 or exists (
     select 1 from public.inventory_movements m where m.transfer_item_id = old.id
   ) then
-    raise exception 'No se puede retirar una lÃ­nea con historial.' using errcode = '23514';
+    raise exception 'No se puede retirar una línea con historial.' using errcode = '23514';
   end if;
   return old;
 end;
@@ -711,7 +850,7 @@ declare
   existing private.inventory_commands%rowtype;
 begin
   if length(normalized_key) < 16 or length(normalized_key) > 160 then
-    raise exception 'La clave de idempotencia no es vÃ¡lida.' using errcode = '22023';
+    raise exception 'La clave de idempotencia no es válida.' using errcode = '22023';
   end if;
   insert into private.inventory_commands (idempotency_key, operation_type, payload_hash, actor_user_id)
   values (normalized_key, p_operation_type, requested_hash, actor_id)
@@ -726,7 +865,7 @@ begin
     raise exception 'La clave de idempotencia ya fue utilizada con otros datos.' using errcode = '23505';
   end if;
   if existing.result is null then
-    raise exception 'La operaciÃ³n idempotente no finalizÃ³ correctamente.' using errcode = '40001';
+    raise exception 'La operación idempotente no finalizó correctamente.' using errcode = '40001';
   end if;
   return existing.result;
 end;
@@ -743,7 +882,7 @@ begin
   set result = p_result
   where idempotency_key = btrim(p_idempotency_key)
     and actor_user_id = (select auth.uid());
-  if not found then raise exception 'No fue posible completar la operaciÃ³n idempotente.'; end if;
+  if not found then raise exception 'No fue posible completar la operación idempotente.'; end if;
 end;
 $$;
 
@@ -770,6 +909,8 @@ set search_path = ''
 as $$
 declare
   actor_id uuid := private.assert_inventory_operator(false);
+  product_id_value uuid;
+  catalog_is_active boolean;
   balance_row public.inventory_balances%rowtype;
   movement_id uuid;
   resulting_physical numeric(14,3);
@@ -777,15 +918,41 @@ declare
   cost_snapshot numeric(14,4);
 begin
   if p_physical_delta = 0 then raise exception 'El movimiento debe cambiar el stock.' using errcode = '22023'; end if;
-  if jsonb_typeof(p_metadata) <> 'object' then raise exception 'Los metadatos no son vÃ¡lidos.' using errcode = '22023'; end if;
-  if not exists (
-    select 1 from public.product_variants v
-    join public.products p on p.id = v.product_id
-    join public.warehouse_locations l on l.id = p_location_id and l.warehouse_id = p_warehouse_id
-    join public.warehouses w on w.id = p_warehouse_id
-    where v.id = p_variant_id and v.is_active and p.is_active and l.is_active and w.is_active
-  ) then
-    raise exception 'La variante, el almacÃ©n o la ubicaciÃ³n no estÃ¡n activos.' using errcode = '23514';
+  if jsonb_typeof(p_metadata) <> 'object' then raise exception 'Los metadatos no son válidos.' using errcode = '22023'; end if;
+
+  -- Todas las operaciones bloquean catálogos en el mismo orden: producto,
+  -- variante, almacén y ubicación. FOR SHARE impide una desactivación
+  -- concurrente hasta que balance y movimiento queden confirmados o revertidos.
+  select v.product_id into product_id_value
+  from public.product_variants v where v.id = p_variant_id;
+  if not found then raise exception 'Variante no encontrada.' using errcode = 'P0002'; end if;
+
+  select p.is_active into catalog_is_active
+  from public.products p where p.id = product_id_value for share;
+  if not found or not catalog_is_active then
+    raise exception 'El producto no está activo.' using errcode = '23514';
+  end if;
+
+  select v.is_active into catalog_is_active
+  from public.product_variants v
+  where v.id = p_variant_id and v.product_id = product_id_value
+  for share;
+  if not found or not catalog_is_active then
+    raise exception 'La variante no está activa.' using errcode = '23514';
+  end if;
+
+  select w.is_active into catalog_is_active
+  from public.warehouses w where w.id = p_warehouse_id for share;
+  if not found or not catalog_is_active then
+    raise exception 'El almacén no está activo.' using errcode = '23514';
+  end if;
+
+  select l.is_active into catalog_is_active
+  from public.warehouse_locations l
+  where l.id = p_location_id and l.warehouse_id = p_warehouse_id
+  for share;
+  if not found or not catalog_is_active then
+    raise exception 'La ubicación no está activa o no pertenece al almacén.' using errcode = '23514';
   end if;
 
   insert into public.inventory_balances (
@@ -810,12 +977,12 @@ begin
 
   resulting_physical := balance_row.physical_stock + p_physical_delta;
   if resulting_physical < balance_row.reserved_stock then
-    raise exception 'Stock disponible insuficiente para completar la operaciÃ³n.' using errcode = '23514';
+    raise exception 'Stock disponible insuficiente para completar la operación.' using errcode = '23514';
   end if;
 
   if p_physical_delta > 0 then
     if p_unit_cost is null or p_unit_cost < 0 then
-      raise exception 'La entrada requiere un costo unitario vÃ¡lido.' using errcode = '22023';
+      raise exception 'La entrada requiere un costo unitario válido.' using errcode = '22023';
     end if;
     cost_snapshot := round(p_unit_cost, 4);
     if balance_row.physical_stock = 0 then
@@ -876,7 +1043,7 @@ declare
   target public.purchase_items%rowtype;
 begin
   select * into target from public.purchase_items i where i.id = p_purchase_item_id for update;
-  if not found then raise exception 'LÃ­nea de compra no encontrada.' using errcode = 'P0002'; end if;
+  if not found then raise exception 'Línea de compra no encontrada.' using errcode = 'P0002'; end if;
   delete from public.purchase_items where id = target.id;
   return target.purchase_id;
 end;
@@ -895,13 +1062,20 @@ begin
   select * into purchase_row from public.purchases p where p.id = p_purchase_id for update;
   if not found then raise exception 'Compra no encontrada.' using errcode = 'P0002'; end if;
   if purchase_row.status <> 'draft' then
-    raise exception 'La compra ya no estÃ¡ disponible para confirmar.' using errcode = '23514';
+    raise exception 'La compra ya no está disponible para confirmar.' using errcode = '23514';
   end if;
   if not exists (select 1 from public.suppliers s where s.id = purchase_row.supplier_id and s.is_active) then
     raise exception 'El proveedor debe estar activo.' using errcode = '23514';
   end if;
   perform 1 from public.purchase_items i where i.purchase_id = p_purchase_id order by i.id for update;
-  if not found then raise exception 'Agrega al menos una lÃ­nea antes de confirmar.' using errcode = '23514'; end if;
+  if not found then raise exception 'Agrega al menos una línea antes de confirmar.' using errcode = '23514'; end if;
+  perform p.id
+  from public.purchase_items i
+  join public.product_variants v on v.id = i.variant_id
+  join public.products p on p.id = v.product_id
+  where i.purchase_id = p_purchase_id
+  order by p.id, v.id
+  for share of p, v;
   if exists (
     select 1 from public.purchase_items i
     left join public.product_variants v on v.id = i.variant_id
@@ -981,21 +1155,21 @@ begin
   end if;
 
   select i.purchase_id into purchase_id_value from public.purchase_items i where i.id = p_purchase_item_id;
-  if purchase_id_value is null then raise exception 'LÃ­nea de compra no encontrada.' using errcode = 'P0002'; end if;
+  if purchase_id_value is null then raise exception 'Línea de compra no encontrada.' using errcode = 'P0002'; end if;
   select * into purchase_row from public.purchases p where p.id = purchase_id_value for update;
   select * into item_row from public.purchase_items i where i.id = p_purchase_item_id for update;
-  if not found then raise exception 'LÃ­nea de compra no encontrada.' using errcode = 'P0002'; end if;
+  if not found then raise exception 'Línea de compra no encontrada.' using errcode = 'P0002'; end if;
   if purchase_row.status not in ('confirmed', 'partially_received') then
-    raise exception 'La compra no estÃ¡ disponible para recepciÃ³n.' using errcode = '23514';
+    raise exception 'La compra no está disponible para recepción.' using errcode = '23514';
   end if;
   if item_row.received_quantity + p_quantity > item_row.ordered_quantity then
-    raise exception 'La cantidad supera el pendiente de la lÃ­nea.' using errcode = '23514';
+    raise exception 'La cantidad supera el pendiente de la línea.' using errcode = '23514';
   end if;
   select * into location_row from public.warehouse_locations l where l.id = p_location_id and l.is_active;
   if not found or not exists (
     select 1 from public.warehouses w where w.id = location_row.warehouse_id and w.is_active
   ) then
-    raise exception 'Selecciona una ubicaciÃ³n activa.' using errcode = '23514';
+    raise exception 'Selecciona una ubicación activa.' using errcode = '23514';
   end if;
 
   movement_result := private.apply_inventory_movement(
@@ -1038,7 +1212,7 @@ declare
   target public.inventory_transfer_items%rowtype;
 begin
   select * into target from public.inventory_transfer_items i where i.id = p_transfer_item_id for update;
-  if not found then raise exception 'LÃ­nea de transferencia no encontrada.' using errcode = 'P0002'; end if;
+  if not found then raise exception 'Línea de transferencia no encontrada.' using errcode = 'P0002'; end if;
   delete from public.inventory_transfer_items where id = target.id;
   return target.transfer_id;
 end;
@@ -1057,7 +1231,7 @@ begin
   select * into transfer_row from public.inventory_transfers t where t.id = p_transfer_id for update;
   if not found then raise exception 'Transferencia no encontrada.' using errcode = 'P0002'; end if;
   if transfer_row.status <> 'draft' then
-    raise exception 'La transferencia ya no estÃ¡ disponible para confirmar.' using errcode = '23514';
+    raise exception 'La transferencia ya no está disponible para confirmar.' using errcode = '23514';
   end if;
   if not exists (
     select 1 from public.warehouses o, public.warehouses d
@@ -1065,7 +1239,26 @@ begin
       and d.id = transfer_row.destination_warehouse_id and d.is_active
   ) then raise exception 'Los almacenes deben estar activos.' using errcode = '23514'; end if;
   perform 1 from public.inventory_transfer_items i where i.transfer_id = p_transfer_id order by i.id for update;
-  if not found then raise exception 'Agrega al menos una lÃ­nea antes de confirmar.' using errcode = '23514'; end if;
+  if not found then raise exception 'Agrega al menos una línea antes de confirmar.' using errcode = '23514'; end if;
+  perform p.id
+  from public.inventory_transfer_items i
+  join public.product_variants v on v.id = i.variant_id
+  join public.products p on p.id = v.product_id
+  where i.transfer_id = p_transfer_id
+  order by p.id, v.id
+  for share of p, v;
+  perform w.id
+  from public.warehouses w
+  where w.id in (transfer_row.origin_warehouse_id, transfer_row.destination_warehouse_id)
+  order by w.id
+  for share of w;
+  perform l.id
+  from public.inventory_transfer_items i
+  join public.warehouse_locations l
+    on l.id in (i.origin_location_id, i.destination_location_id)
+  where i.transfer_id = p_transfer_id
+  order by l.id
+  for share of l;
   if exists (
     select 1
     from public.inventory_transfer_items i
@@ -1142,7 +1335,7 @@ begin
   select * into transfer_row from public.inventory_transfers t where t.id = p_transfer_id for update;
   if not found then raise exception 'Transferencia no encontrada.' using errcode = 'P0002'; end if;
   if transfer_row.status <> 'confirmed' then
-    raise exception 'La transferencia no estÃ¡ disponible para despacho.' using errcode = '23514';
+    raise exception 'La transferencia no está disponible para despacho.' using errcode = '23514';
   end if;
 
   for item_row in
@@ -1152,7 +1345,7 @@ begin
     for update
   loop
     if item_row.dispatched_quantity <> 0 then
-      raise exception 'La transferencia contiene una lÃ­nea ya despachada.' using errcode = '23514';
+      raise exception 'La transferencia contiene una línea ya despachada.' using errcode = '23514';
     end if;
     movement_result := private.apply_inventory_movement(
       item_row.variant_id, transfer_row.origin_warehouse_id, item_row.origin_location_id,
@@ -1163,7 +1356,7 @@ begin
     update public.inventory_transfer_items
     set dispatched_quantity = requested_quantity where id = item_row.id;
   end loop;
-  if not found then raise exception 'La transferencia no tiene lÃ­neas.' using errcode = '23514'; end if;
+  if not found then raise exception 'La transferencia no tiene líneas.' using errcode = '23514'; end if;
 
   update public.inventory_transfers
   set status = 'in_transit', dispatched_at = now(), dispatched_by = actor_id
@@ -1206,12 +1399,12 @@ begin
     raise exception 'La cantidad recibida debe ser mayor que cero.' using errcode = '22023';
   end if;
   select i.transfer_id into transfer_id_value from public.inventory_transfer_items i where i.id = p_transfer_item_id;
-  if transfer_id_value is null then raise exception 'LÃ­nea de transferencia no encontrada.' using errcode = 'P0002'; end if;
+  if transfer_id_value is null then raise exception 'Línea de transferencia no encontrada.' using errcode = 'P0002'; end if;
   select * into transfer_row from public.inventory_transfers t where t.id = transfer_id_value for update;
   select * into item_row from public.inventory_transfer_items i where i.id = p_transfer_item_id for update;
-  if not found then raise exception 'LÃ­nea de transferencia no encontrada.' using errcode = 'P0002'; end if;
+  if not found then raise exception 'Línea de transferencia no encontrada.' using errcode = 'P0002'; end if;
   if transfer_row.status not in ('in_transit', 'partially_received') then
-    raise exception 'La transferencia no estÃ¡ disponible para recepciÃ³n.' using errcode = '23514';
+    raise exception 'La transferencia no está disponible para recepción.' using errcode = '23514';
   end if;
   if item_row.received_quantity + p_quantity > item_row.dispatched_quantity then
     raise exception 'La cantidad supera el pendiente despachado.' using errcode = '23514';
@@ -1219,7 +1412,7 @@ begin
   select * into outgoing from public.inventory_movements m
   where m.transfer_item_id = item_row.id and m.movement_type = 'transfer_out'
   order by m.occurred_at desc limit 1;
-  if not found then raise exception 'No se encontrÃ³ la salida vinculada.' using errcode = '23514'; end if;
+  if not found then raise exception 'No se encontró la salida vinculada.' using errcode = '23514'; end if;
 
   movement_result := private.apply_inventory_movement(
     item_row.variant_id, transfer_row.destination_warehouse_id, item_row.destination_location_id,
@@ -1289,13 +1482,13 @@ begin
     raise exception 'La cantidad debe ser mayor que cero.' using errcode = '22023';
   end if;
   if nullif(btrim(p_reason), '') is null then
-    raise exception 'La razÃ³n es obligatoria.' using errcode = '22023';
+    raise exception 'La razón es obligatoria.' using errcode = '22023';
   end if;
   if p_movement_type in ('initial_stock', 'positive_adjustment') and (p_unit_cost is null or p_unit_cost < 0) then
     raise exception 'Las entradas requieren costo unitario.' using errcode = '22023';
   end if;
   select * into location_row from public.warehouse_locations l where l.id = p_location_id and l.is_active;
-  if not found then raise exception 'UbicaciÃ³n no encontrada o inactiva.' using errcode = 'P0002'; end if;
+  if not found then raise exception 'Ubicación no encontrada o inactiva.' using errcode = 'P0002'; end if;
   if p_movement_type = 'initial_stock' and (
     exists (select 1 from public.inventory_movements m where m.variant_id = p_variant_id and m.location_id = p_location_id)
     or exists (
@@ -1612,5 +1805,8 @@ revoke all on function private.apply_inventory_movement(
   uuid, uuid, uuid, public.movement_type, numeric, numeric, text,
   uuid, uuid, uuid, uuid, uuid, text, jsonb
 ) from public, anon, authenticated;
+revoke all on function private.normalize_product_variant() from public, anon, authenticated;
+revoke all on function private.normalize_warehouse_location() from public, anon, authenticated;
+revoke all on function private.normalize_warehouse() from public, anon, authenticated;
 
 commit;

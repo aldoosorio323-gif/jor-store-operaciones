@@ -15,7 +15,7 @@ describe("reglas de dominio de inventario", () => {
     expect(calculateWeightedAverage(0, 0, 5, 7.12346)).toBe(7.1235);
   });
 
-  it("rechaza valores negativos o entradas vacÃ­as", () => {
+  it("rechaza valores negativos o entradas vacías", () => {
     expect(() => calculateWeightedAverage(-1, 0, 1, 1)).toThrow();
     expect(() => calculateWeightedAverage(0, 0, 0, 1)).toThrow();
     expect(() => calculateWeightedAverage(1, 1, 1, -1)).toThrow();

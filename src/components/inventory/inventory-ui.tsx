@@ -18,15 +18,15 @@ export function OperationalPagination({ basePath, page, pageCount, params }: {
     for (const [key, value] of Object.entries(params)) if (value) search.set(key, String(value));
     return `${basePath}?${search}`;
   };
-  return <nav aria-label="PaginaciÃ³n" className="mt-6 flex items-center justify-between gap-4">
+  return <nav aria-label="Paginación" className="mt-6 flex items-center justify-between gap-4">
     {page > 1 ? <Link href={href(page - 1)} className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold">Anterior</Link> : <span />}
-    <span className="text-sm text-neutral-600">PÃ¡gina {page} de {pageCount}</span>
+    <span className="text-sm text-neutral-600">Página {page} de {pageCount}</span>
     {page < pageCount ? <Link href={href(page + 1)} className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold">Siguiente</Link> : <span />}
   </nav>;
 }
 
 export function OperationalError({ title }: { title: string }) {
-  return <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><h1 className="text-2xl font-semibold text-amber-950">{title}</h1><p className="mt-2 text-amber-900">No fue posible cargar la informaciÃ³n. Verifica que la migraciÃ³n 004 estÃ© aplicada en el entorno consultado.</p></section>;
+  return <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><h1 className="text-2xl font-semibold text-amber-950">{title}</h1><p className="mt-2 text-amber-900">No fue posible cargar la información. Verifica que la migración 004 esté aplicada en el entorno consultado.</p></section>;
 }
 
 export function OperationalLoading() {

@@ -1,32 +1,33 @@
 import { z } from "zod";
+import { limaDateTimeLocalToUtc } from "@/features/inventory/lima-time";
 
 const optionalText = (max: number) => z.string().trim().max(max).transform((value) => value || null);
 const quantity = z.coerce.number().finite().positive("La cantidad debe ser mayor que cero.")
-  .multipleOf(0.001, "La cantidad admite como mÃ¡ximo tres decimales.");
+  .multipleOf(0.001, "La cantidad admite como máximo tres decimales.");
 const money = z.coerce.number().finite().min(0, "El importe no puede ser negativo.")
-  .multipleOf(0.01, "El importe admite como mÃ¡ximo dos decimales.");
+  .multipleOf(0.01, "El importe admite como máximo dos decimales.");
 const unitCost = z.coerce.number().finite().min(0, "El costo no puede ser negativo.")
-  .multipleOf(0.0001, "El costo admite como mÃ¡ximo cuatro decimales.");
+  .multipleOf(0.0001, "El costo admite como máximo cuatro decimales.");
 const optionalDate = z.string().trim().refine(
   (value) => value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value),
-  "La fecha no es vÃ¡lida.",
+  "La fecha no es válida.",
 ).transform((value) => value || null);
 
-export const entityIdSchema = z.uuid("El registro no es vÃ¡lido.");
-export const idempotencyKeySchema = z.string().trim().min(16, "La clave de operaciÃ³n no es vÃ¡lida.")
-  .max(160).regex(/^[A-Za-z0-9._:-]+$/, "La clave de operaciÃ³n no es vÃ¡lida.");
+export const entityIdSchema = z.uuid("El registro no es válido.");
+export const idempotencyKeySchema = z.string().trim().min(16, "La clave de operación no es válida.")
+  .max(160).regex(/^[A-Za-z0-9._:-]+$/, "La clave de operación no es válida.");
 
 export const purchaseSchema = z.object({
   supplierId: entityIdSchema,
   supplierReference: optionalText(120),
-  orderedAt: z.string().trim().refine((value) => !Number.isNaN(Date.parse(value)), "La fecha de compra no es vÃ¡lida."),
+  orderedAt: z.string().trim().refine((value) => limaDateTimeLocalToUtc(value) !== null, "La fecha de compra no es válida."),
   expectedAt: optionalDate,
   notes: optionalText(1000),
 }).strict();
 
 export const purchaseItemSchema = z.object({
   purchaseId: entityIdSchema,
-  lineNumber: z.coerce.number().int().positive("El nÃºmero de lÃ­nea debe ser positivo."),
+  lineNumber: z.coerce.number().int().positive("El número de línea debe ser positivo."),
   variantId: entityIdSchema,
   orderedQuantity: quantity,
   unitCost,
@@ -46,12 +47,12 @@ export const transferSchema = z.object({
   notes: optionalText(1000),
 }).strict().refine(
   (value) => value.originWarehouseId !== value.destinationWarehouseId,
-  { message: "El almacÃ©n de destino debe ser diferente.", path: ["destinationWarehouseId"] },
+  { message: "El almacén de destino debe ser diferente.", path: ["destinationWarehouseId"] },
 );
 
 export const transferItemSchema = z.object({
   transferId: entityIdSchema,
-  lineNumber: z.coerce.number().int().positive("El nÃºmero de lÃ­nea debe ser positivo."),
+  lineNumber: z.coerce.number().int().positive("El número de línea debe ser positivo."),
   variantId: entityIdSchema,
   originLocationId: entityIdSchema,
   destinationLocationId: entityIdSchema,
@@ -73,7 +74,7 @@ export const inventoryAdjustmentSchema = z.object({
   movementType: z.enum(["initial_stock", "positive_adjustment", "negative_adjustment", "damaged", "lost"]),
   quantity,
   unitCost: z.union([z.null(), unitCost]),
-  reason: z.string().trim().min(3, "Ingresa una razÃ³n.").max(500),
+  reason: z.string().trim().min(3, "Ingresa una razón.").max(500),
   idempotencyKey: idempotencyKeySchema,
 }).strict().superRefine((value, context) => {
   if (["initial_stock", "positive_adjustment"].includes(value.movementType) && value.unitCost === null) {

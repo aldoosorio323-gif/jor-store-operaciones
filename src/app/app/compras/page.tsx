@@ -14,9 +14,9 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Pr
     [result, suppliers] = await Promise.all([listPurchases(filters), listSupplierOptions()]);
   } catch { return <OperationalError title="Compras" />; }
   return <section>
-      <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold text-emerald-950">Compras</h1><p className="mt-2 text-neutral-600">Borradores, confirmaciÃ³n y recepciones con costo histÃ³rico.</p></div><Link href="/app/compras/nueva" className="rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white">Nueva compra</Link></div>
+      <div className="flex flex-wrap items-center justify-between gap-4"><div><h1 className="text-3xl font-semibold text-emerald-950">Compras</h1><p className="mt-2 text-neutral-600">Borradores, confirmación y recepciones con costo histórico.</p></div><Link href="/app/compras/nueva" className="rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white">Nueva compra</Link></div>
       <form className="mt-6 grid gap-3 rounded-2xl border border-neutral-200 bg-white p-4 sm:grid-cols-4">
-        <label className="text-sm font-medium">Buscar<input name="query" defaultValue={filters.query} placeholder="NÃºmero o referencia" className="mt-2 w-full rounded-xl border px-4 py-3" /></label>
+        <label className="text-sm font-medium">Buscar<input name="query" defaultValue={filters.query} placeholder="Número o referencia" className="mt-2 w-full rounded-xl border px-4 py-3" /></label>
         <label className="text-sm font-medium">Estado<select name="status" defaultValue={filters.status} className="mt-2 w-full rounded-xl border px-4 py-3"><option value="all">Todos</option>{Object.entries(purchaseStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
         <label className="text-sm font-medium">Proveedor<select name="supplierId" defaultValue={filters.supplierId} className="mt-2 w-full rounded-xl border px-4 py-3"><option value="">Todos</option>{suppliers.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></label>
         <button className="self-end rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white">Filtrar</button>

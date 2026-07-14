@@ -63,7 +63,7 @@ export async function listLocationOptions(): Promise<LocationOption[]> {
   const warehouseLabels = new Map((warehouses.data ?? []).map((item) => [item.id, `${item.code} · ${item.name}`]));
   return data.map((item) => ({
     id: item.id, warehouseId: item.warehouse_id, locationType: item.location_type,
-    label: `${warehouseLabels.get(item.warehouse_id) ?? "AlmacÃ©n"} · ${item.code} · ${item.name}`,
+    label: `${warehouseLabels.get(item.warehouse_id) ?? "Almacén"} · ${item.code} · ${item.name}`,
   }));
 }
 
@@ -105,7 +105,7 @@ export async function getPurchase(id: string): Promise<PurchaseDetail | null> {
       .select("id, purchase_id, line_number, variant_id, ordered_quantity, received_quantity, unit_cost, tax_amount, line_subtotal, line_total")
       .eq("purchase_id", id).order("line_number").limit(200),
   ]);
-  if (rowsError) throw new Error("No fue posible cargar las lÃ­neas de compra.");
+  if (rowsError) throw new Error("No fue posible cargar las líneas de compra.");
   const variantIds = unique(rows.map((item) => item.variant_id));
   const variants = variantIds.length
     ? await supabase.from("product_variants").select("id, sku, name").in("id", variantIds)
@@ -191,8 +191,8 @@ async function decorateBalances(rows: Array<{
     return {
       id: item.id, variantId: item.variant_id, variantLabel: variant?.name ?? "Variante no disponible",
       sku: variant?.sku ?? "—", warehouseId: item.warehouse_id,
-      warehouseLabel: warehouseMap.get(item.warehouse_id) ?? "AlmacÃ©n no disponible",
-      locationId: item.location_id, locationLabel: locationMap.get(item.location_id) ?? "UbicaciÃ³n no disponible",
+      warehouseLabel: warehouseMap.get(item.warehouse_id) ?? "Almacén no disponible",
+      locationId: item.location_id, locationLabel: locationMap.get(item.location_id) ?? "Ubicación no disponible",
       physicalStock: item.physical_stock, reservedStock: item.reserved_stock,
       availableStock: item.available_stock, averageUnitCost: item.average_unit_cost, version: item.version,
     };
@@ -274,7 +274,7 @@ export async function getTransfer(id: string): Promise<TransferDetail | null> {
   const { data: rows, error: rowsError } = await supabase.from("inventory_transfer_items")
     .select("id, transfer_id, line_number, variant_id, origin_location_id, destination_location_id, requested_quantity, dispatched_quantity, received_quantity")
     .eq("transfer_id", id).order("line_number").limit(200);
-  if (rowsError) throw new Error("No fue posible cargar las lÃ­neas de transferencia.");
+  if (rowsError) throw new Error("No fue posible cargar las líneas de transferencia.");
   const [warehouses, variants, locations] = await Promise.all([
     supabase.from("warehouses").select("id, code, name").in("id", [transfer.origin_warehouse_id, transfer.destination_warehouse_id]),
     rows.length ? supabase.from("product_variants").select("id, sku, name").in("id", unique(rows.map((item) => item.variant_id))) : Promise.resolve({ data: [], error: null }),

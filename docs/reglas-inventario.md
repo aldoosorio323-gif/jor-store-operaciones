@@ -100,6 +100,9 @@ El costo de cada `purchase_item` se conserva. Salidas no recalculan el promedio;
 - `private.apply_inventory_movement` es el único punto que cambia físico, preserva reservado, incrementa versión y escribe el movimiento.
 - Recepciones de compra, despacho/recepción de transferencia y ajustes usan claves idempotentes; el mismo actor, operación y payload recuperan el resultado, mientras un payload distinto se rechaza.
 - Los bloqueos se toman después de bloquear documento/línea; operaciones multilínea ordenan ubicación, variante e ítem. Cualquier fallo revierte documento, balances, movimientos y auditoría.
+- Antes de modificar un balance se bloquean con `FOR SHARE`, en orden fijo, producto, variante, almacén y ubicación. Así una desactivación concurrente espera a que el movimiento confirme o revierta.
+- Una variante o ubicación no puede desactivarse si conserva stock físico/reservado o participa en una transferencia abierta; una variante tampoco puede desactivarse con recepción de compra pendiente. El almacén conserva la regla de desactivar primero sus ubicaciones y añade protección defensiva ante stock o transferencias abiertas.
+- El libro mayor enlaza de forma compuesta cada movimiento con la identidad completa de su balance y, cuando corresponde, con la compra/línea o transferencia/línea exactas.
 - El costo promedio se redondea a cuatro decimales. Entradas de compra, transferencia, stock inicial y ajustes positivos recalculan; las salidas conservan el promedio y guardan snapshot.
 - `reserved_stock` existe, inicia en cero y no tiene operación pública en esta etapa. Reservas y ventas pertenecen a Etapa 4.
 - `supplier_return` está reservado en el enum, sin flujo ni interfaz hasta definir su regla contable.
