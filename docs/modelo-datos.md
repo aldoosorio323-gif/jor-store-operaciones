@@ -255,7 +255,7 @@ Etapa 1 implementó `actor_user_id`, `action`, `target_profile_id`, `metadata` y
 
 ## Implementación de Etapa 2
 
-La migración `202607130003_catalogs.sql` crea las cinco tablas anteriores con auditoría estándar referenciada a `profiles`. Triggers privados asignan fechas y actor desde `auth.uid()`, normalizan SKU/códigos/correo y convierten opcionales vacíos a `null`. RLS permite al administrador activo leer todo y escribir; el operador activo solo lee filas activas, con producto/almacén padre activo; inactivos y anónimos no leen. La migración está implementada en código y pendiente de aplicación remota manual. No crea balances, existencias, movimientos, compras ni pedidos.
+La migración `202607130003_catalogs.sql`, aplicada local y remotamente, crea las cinco tablas anteriores con auditoría estándar referenciada a `profiles`. Triggers privados asignan fechas y actor desde `auth.uid()`, mantienen los identificadores estables, normalizan SKU/códigos/correo y convierten opcionales vacíos a `null`. RLS permite al administrador activo leer todo y escribir; el operador activo solo lee filas activas, con producto/almacén padre activo; inactivos y anónimos no leen. No crea balances, existencias, movimientos, compras ni pedidos.
 
 ## Relaciones principales
 

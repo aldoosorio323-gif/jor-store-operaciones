@@ -2,7 +2,7 @@
 
 ## Alcance
 
-JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. La integración real de Etapa 1 está validada; Etapa 2 añade los catálogos en código y deja su migración pendiente de aplicación remota manual.
+JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. Las integraciones reales de Etapas 1 y 2 están validadas y sus migraciones 001, 002 y 003 están aplicadas.
 
 ## Vista general
 
@@ -109,4 +109,4 @@ Los módulos se organizan por dominio en `src/features`; las consultas de catál
 
 ## Estado de integración
 
-Las migraciones 001 y 002 de Etapa 1 están aplicadas en el Supabase de desarrollo. Etapa 2 implementa productos, variantes, almacenes, ubicaciones y proveedores; `202607130003_catalogs.sql` y `supabase/tests/rls_catalogs.sql` están preparados, pero la migración y las pruebas SQL todavía no se ejecutan remotamente. No existen inventario, compras, pedidos ni despliegue Netlify.
+Las migraciones 001 y 002 de Etapa 1 y la migración 003 de Etapa 2 están aplicadas en el Supabase de desarrollo. Productos, variantes, almacenes, ubicaciones y proveedores fueron validados manualmente con registros de demostración. `supabase/tests/rls_catalogs.sql` permanece preparado, pero no se declara ejecutado sin una conexión SQL y perfiles ficticios confirmados. No existen inventario, compras, pedidos ni despliegue Netlify.

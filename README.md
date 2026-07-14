@@ -2,7 +2,7 @@
 
 Aplicación web interna, privada y móvil primero para administrar las operaciones de JOR STORE. El proyecto avanza por etapas y usa Supabase PostgreSQL como única fuente oficial de datos.
 
-> Estado actual: **Etapa 2 — catálogos operativos implementados en código**. La Etapa 1 fue validada con Supabase real y las migraciones `202607130001` y `202607130002` están aplicadas. La migración `202607130003_catalogs.sql` queda pendiente de revisión y aplicación remota manual.
+> Estado actual: **Etapa 2 — catálogos operativos completados y validados con Supabase real**. Las migraciones `202607130001`, `202607130002` y `202607130003` están aplicadas local y remotamente.
 
 ## Tecnologías
 
@@ -105,13 +105,13 @@ GitHub Actions ejecuta `npm ci`, lint, typecheck, test y build en pushes a `desa
 
 ### Verificación local de Etapa 2
 
-Se ejecutaron `npm install`, `npm run lint`, `npm run typecheck`, `npm run test` (38 pruebas) y `npm run build` correctamente. `git diff --check` no reportó errores. El dry-run de Supabase propone únicamente `202607130003_catalogs.sql`. Las pruebas SQL de catálogos no se ejecutaron porque la migración 003 no debe aplicarse remotamente antes de revisar el commit.
+Se ejecutaron `npm run lint`, `npm run typecheck`, `npm run test` (44 pruebas) y `npm run build` correctamente. `git diff --check` no reportó errores. La lista de migraciones confirma 001, 002 y 003 tanto en Local como en Remote. Las pruebas SQL de catálogos no se ejecutaron porque este entorno no dispone de `psql`, conexión SQL de pruebas ni perfiles ficticios configurados; no se usó la cuenta administrativa real.
 
 ## Migraciones y pruebas Supabase
 
-Las migraciones 001 y 002 aparecen aplicadas local y remotamente. La migración 003 crea `products`, `product_variants`, `warehouses`, `warehouse_locations` y `suppliers`, pero no se aplica automáticamente: primero debe revisarse el commit y luego ejecutarse manualmente.
+Las migraciones 001, 002 y 003 aparecen aplicadas local y remotamente. La migración 003 crea `products`, `product_variants`, `warehouses`, `warehouse_locations` y `suppliers` con RLS, restricciones y auditoría transaccional.
 
-Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS, restricciones, auditoría y límites de secretos. `supabase/tests/rls_catalogs.sql` prepara verificaciones reproducibles para anónimo, administrador, operador e inactivo, unicidad, relaciones inmutables, borrado y desactivación de padres. Termina con `ROLLBACK`; no se afirma que haya pasado en remoto mientras 003 no esté aplicada.
+Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS, restricciones, auditoría y límites de secretos. `supabase/tests/rls_catalogs.sql` prepara verificaciones reproducibles para anónimo, administrador, operador e inactivo, unicidad, relaciones inmutables, borrado y desactivación de padres. Termina con `ROLLBACK`; no se afirma que haya sido ejecutada sin una conexión SQL y perfiles ficticios confirmados.
 
 ## Seguridad
 
@@ -139,4 +139,4 @@ Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS
 - `docs/plan-implementacion.md`: etapas y estado.
 - `docs/reglas-inventario.md`: invariantes futuras de inventario.
 
-La siguiente etapa prevista es **Etapa 3: compras, reposición y movimientos**, pero no debe iniciarse sin una solicitud expresa y sin revisar/aplicar primero la migración 003.
+La siguiente etapa prevista es **Etapa 3: compras, reposición y movimientos**, pero no debe iniciarse sin una solicitud expresa.

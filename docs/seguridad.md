@@ -130,4 +130,4 @@ RLS probada, signup desactivado, buckets privados, secretos en hosting, URLs per
 
 ## Verificación
 
-Etapa 1 y sus migraciones 001/002 están conectadas al Supabase real de desarrollo. Las pruebas unitarias/estáticas de Etapa 2 verifican Zod, permisos, navegación, ausencia de `service_role` cliente y estructura de migración/RLS. `supabase/tests/rls_catalogs.sql` queda preparado con `ROLLBACK`; no se declara ejecutado remotamente porque la migración 003 sigue pendiente de revisión y aplicación.
+Etapas 1 y 2 están conectadas al Supabase real de desarrollo; las migraciones 001, 002 y 003 están aplicadas local y remotamente. Las pruebas unitarias/estáticas verifican Zod, permisos, navegación, ausencia de `service_role` cliente y estructura de migración/RLS. `supabase/tests/rls_catalogs.sql` queda preparado con `ROLLBACK`; no se declara ejecutado porque este entorno no dispone de `psql`, conexión SQL de pruebas ni perfiles ficticios configurados.

@@ -22,7 +22,7 @@ El proyecto avanza por etapas cerradas. Cada etapa empieza solo por solicitud ex
 ## Etapa 2 — Productos, variantes y almacenes
 
 - **Objetivo:** administrar catálogos que definen la granularidad de inventario.
-- **Estado:** implementada en código; migración 003 pendiente de revisión y aplicación remota manual. Las pruebas SQL de Etapa 2 no se ejecutan hasta aplicar esa migración.
+- **Estado:** completada y validada con Supabase real; migración 003 aplicada local y remotamente. El guion SQL con `ROLLBACK` permanece disponible para una ejecución futura con conexión y perfiles ficticios dedicados.
 - **Entregables:** productos, variantes/SKU, almacenes, ubicaciones y proveedores; validaciones Zod; UI móvil; migraciones/RLS/pruebas.
 - **Dependencias:** autenticación/roles.
 - **Riesgos:** SKU duplicados, desactivar catálogos usados, ubicaciones ambiguas.
