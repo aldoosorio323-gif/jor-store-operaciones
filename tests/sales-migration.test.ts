@@ -13,6 +13,43 @@ describe("migración de ventas", () => {
     expect(migration).toContain("alter column movement_type type public.movement_type");
     expect(migration).toContain("drop type public.movement_type_stage_three");
     expect(migration).not.toMatch(/alter type public\.movement_type add value/i);
+    expect(migration).not.toMatch(/drop type public\.movement_type_stage_three\s+cascade/i);
+
+    const dropReason = migration.indexOf("drop constraint inventory_movements_reason_required");
+    const dropDirection = migration.indexOf("drop constraint inventory_movements_direction_valid");
+    const dropReference = migration.indexOf("drop constraint inventory_movements_reference_valid");
+    const alterMovementType = migration.indexOf("alter column movement_type type public.movement_type");
+    const addReason = migration.indexOf("add constraint inventory_movements_reason_required");
+    const dropStageThreeReservation = migration.indexOf("drop constraint inventory_movements_stage_three_reserved_unchanged");
+    const dropOldPrivateOverload = migration.lastIndexOf("drop function private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type_stage_three");
+    const dropOldPublicOverload = migration.lastIndexOf("drop function public.adjust_inventory(uuid,uuid,public.movement_type_stage_three");
+    const dropOldType = migration.lastIndexOf("drop type public.movement_type_stage_three");
+    const commit = migration.lastIndexOf("commit;");
+
+    for (const dependency of [dropReason, dropDirection, dropReference]) {
+      expect(dependency).toBeGreaterThanOrEqual(0);
+      expect(dependency).toBeLessThan(alterMovementType);
+    }
+    expect(alterMovementType).toBeLessThan(addReason);
+    expect(addReason).toBeLessThan(dropStageThreeReservation);
+    expect(dropStageThreeReservation).toBeLessThan(dropOldType);
+    expect(dropOldPrivateOverload).toBeLessThan(dropOldType);
+    expect(dropOldPublicOverload).toBeLessThan(dropOldType);
+    expect(dropOldType).toBeLessThan(commit);
+    expect(migration.slice(dropOldType, commit)).not.toMatch(/\b(create|alter)\b/i);
+  });
+
+  it("recrea la restricción de motivo con el enum nuevo y el alcance correcto", () => {
+    const start = migration.indexOf("add constraint inventory_movements_reason_required");
+    const end = migration.indexOf(";", start);
+    const constraint = migration.slice(start, end);
+
+    for (const movementType of [
+      "positive_adjustment", "negative_adjustment", "damaged", "lost", "initial_stock", "customer_return",
+    ]) expect(constraint).toContain(`'${movementType}'`);
+    expect(constraint).toContain("nullif(btrim(reason), '') is not null");
+    expect(constraint).not.toContain("'purchase_entry'");
+    expect(constraint).not.toContain("'sale_reservation'");
   });
 
   it("crea tablas con RLS y sin DELETE", () => {
@@ -101,6 +138,9 @@ describe("migración de ventas", () => {
 
   it("mantiene pruebas SQL ficticias, transaccionales y de concurrencia documentada", () => {
     for (const scenario of ["single_line_partial_preparing", "single_line_complete_shipped", "two_lines_partial_preparing", "two_lines_complete_shipped", "dispatch_retry_idempotent", "pending_over_balance_rejected", "pending_edit_over_balance_rejected", "pending_cancelled_order_rejected", "pending_returned_order_rejected", "pending_equal_balance_allowed", "pending_partial_allowed", "pending_concurrency_overpayment_rejected", "pending_payment_concurrency_two_connections", "discount_above_subtotal_rejected", "discount_edit_rejected", "confirm_order_concurrency_two_connections"]) {
+      expect(sql).toContain(scenario);
+    }
+    for (const scenario of ["customer_return_without_reason_rejected", "movement_reason_constraint_scope"]) {
       expect(sql).toContain(scenario);
     }
     expect(sql.toLowerCase()).toContain("rollback;");

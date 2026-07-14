@@ -113,7 +113,7 @@ describe("migración de compras e inventario", () => {
       "variant_pending_purchase_deactivation", "variant_open_transfer_deactivation",
       "location_open_transfer_deactivation", "balance_identity_mismatch",
       "purchase_line_identity_mismatch", "transfer_line_identity_mismatch",
-      "movement_deactivation_concurrency_two_connections",
+      "movement_deactivation_concurrency_two_connections", "adjustment_without_reason_rejected",
     ]) expect(sqlChecks).toContain(fragment);
     expect(sqlChecks).toContain("completamente fictici");
     expect(sqlChecks.toLowerCase()).toContain("rollback;");

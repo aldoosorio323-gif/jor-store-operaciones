@@ -296,6 +296,46 @@ select name_match and not document_match and not email_match and not phone_match
 -- para comprobar la restricción, nunca service_role de la aplicación.
 reset role;
 select id as balance_id from public.inventory_balances where variant_id=:'variant_id' and location_id=:'location_id' \gset
+
+-- movement_reason_constraint_scope: customer_return exige motivo; purchase_entry
+-- y sale_reservation no quedan incluidos por esta restricción.
+do $$
+declare constraint_definition text;
+begin
+  select pg_get_constraintdef(c.oid) into constraint_definition
+  from pg_constraint c
+  where c.conrelid = 'public.inventory_movements'::regclass
+    and c.conname = 'inventory_movements_reason_required';
+  if constraint_definition is null
+    or constraint_definition not like '%customer_return%'
+    or constraint_definition like '%purchase_entry%'
+    or constraint_definition like '%sale_reservation%'
+  then
+    raise exception 'La restricción ficticia de motivos tiene un alcance incorrecto.';
+  end if;
+end;
+$$;
+
+\set ON_ERROR_STOP off
+savepoint customer_return_without_reason_rejected;
+insert into public.inventory_movements(
+  balance_id,movement_type,variant_id,warehouse_id,location_id,
+  previous_physical,physical_delta,resulting_physical,previous_reserved,reserved_delta,resulting_reserved,
+  unit_cost_snapshot,reason,order_id,order_item_id,responsible_user_id,idempotency_key,metadata,created_by
+) values(
+  :'balance_id','customer_return',:'variant_id',:'warehouse_id',:'location_id',
+  5,1,6,0,0,0,5,null,:'order_id',:'order_item_id',:'admin_id',
+  '00000000-0000-4000-8000-000000000197','{}',:'admin_id'
+);
+\if :ERROR
+  rollback to savepoint customer_return_without_reason_rejected;
+\else
+  \echo 'FALLO: se permitió una devolución de cliente sin motivo.'
+  \quit 1
+\endif
+release savepoint customer_return_without_reason_rejected;
+\set ON_ERROR_STOP on
+
 \set ON_ERROR_STOP off
 savepoint movement_reference_combination_rejected;
 insert into public.inventory_movements(

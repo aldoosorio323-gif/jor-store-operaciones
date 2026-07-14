@@ -11,6 +11,7 @@ create type public.movement_type as enum (
 
 drop index public.inventory_movements_type_occurred_idx;
 alter table public.inventory_movements
+  drop constraint inventory_movements_reason_required,
   drop constraint inventory_movements_direction_valid,
   drop constraint inventory_movements_reference_valid;
 alter table public.inventory_movements
@@ -18,6 +19,13 @@ alter table public.inventory_movements
   using movement_type::text::public.movement_type;
 create index inventory_movements_type_occurred_idx
   on public.inventory_movements (movement_type, occurred_at desc);
+alter table public.inventory_movements
+  add constraint inventory_movements_reason_required check (
+    movement_type not in (
+      'positive_adjustment', 'negative_adjustment', 'damaged', 'lost', 'initial_stock', 'customer_return'
+    )
+    or nullif(btrim(reason), '') is not null
+  );
 
 create type public.order_status as enum (
   'draft', 'new', 'confirmed', 'preparing', 'shipped', 'delivered', 'cancelled', 'returned'
@@ -558,10 +566,6 @@ begin
       jsonb_build_object('movement_type',p_movement_type,'quantity_delta',signed_quantity));
   perform private.finish_inventory_command(p_idempotency_key,movement_result); return movement_result;
 end; $$;
-
-drop function private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type_stage_three,numeric,numeric,text,uuid,uuid,uuid,uuid,uuid,text,jsonb);
-drop function public.adjust_inventory(uuid,uuid,public.movement_type_stage_three,numeric,numeric,text,text);
-drop type public.movement_type_stage_three;
 
 revoke all on function private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type,numeric,numeric,text,uuid,uuid,uuid,uuid,uuid,text,jsonb)
   from public,anon,authenticated;
@@ -1138,5 +1142,9 @@ drop function private.obsolete_cancel_order(uuid,text);
 drop function private.obsolete_financial_reconciliation();
 revoke all on function private.apply_sales_return_movement(uuid,uuid,uuid,numeric,text,text)
   from public,anon,authenticated;
+
+drop function private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type_stage_three,numeric,numeric,text,uuid,uuid,uuid,uuid,uuid,text,jsonb);
+drop function public.adjust_inventory(uuid,uuid,public.movement_type_stage_three,numeric,numeric,text,text);
+drop type public.movement_type_stage_three;
 
 commit;

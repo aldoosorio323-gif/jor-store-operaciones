@@ -41,6 +41,22 @@ values (:'origin_warehouse_id', 'UBI-ETAPA3-A', 'Ubicación ficticia origen', 's
 insert into public.warehouse_locations (warehouse_id, code, name, location_type)
 values (:'destination_warehouse_id', 'UBI-ETAPA3-B', 'Ubicación ficticia destino', 'storage') returning id as destination_location_id \gset
 
+-- adjustment_without_reason_rejected: los ajustes continúan exigiendo un motivo no vacío.
+\set ON_ERROR_STOP off
+savepoint adjustment_without_reason_rejected;
+select public.adjust_inventory(
+  :'variant_id', :'origin_location_id', 'positive_adjustment', 1, 1,
+  null, 'idem-adjustment-without-reason-ficticia-0001'
+);
+\if :ERROR
+  rollback to savepoint adjustment_without_reason_rejected;
+\else
+  \echo 'FALLO: se permitió un ajuste sin motivo.'
+  \quit 1
+\endif
+release savepoint adjustment_without_reason_rejected;
+\set ON_ERROR_STOP on
+
 -- Compra, congelamiento, recepciones parciales/completas e idempotencia.
 insert into public.purchases (supplier_id, supplier_reference, ordered_at)
 values (:'supplier_id', 'REF-FICTICIA-ETAPA3', now()) returning id as purchase_id \gset
