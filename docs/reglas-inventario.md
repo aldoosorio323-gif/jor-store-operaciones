@@ -93,3 +93,16 @@ El costo de cada `purchase_item` se conserva. Salidas no recalculan el promedio;
 ## Historial
 
 `inventory_movements` es un libro mayor append-only. Guarda snapshots de cantidades y costo, referencias a compra/pedido/transferencia, usuario, motivo, metadatos mínimos y `occurred_at`. Un saldo puede reconstruirse sumando movimientos y compararse con el balance agregado. Correcciones posteriores referencian el movimiento original y nunca alteran su evidencia.
+
+## Alcance implementado en Etapa 3
+
+- La migración 004 está implementada en código y pendiente de aplicación remota.
+- `private.apply_inventory_movement` es el único punto que cambia físico, preserva reservado, incrementa versión y escribe el movimiento.
+- Recepciones de compra, despacho/recepción de transferencia y ajustes usan claves idempotentes; el mismo actor, operación y payload recuperan el resultado, mientras un payload distinto se rechaza.
+- Los bloqueos se toman después de bloquear documento/línea; operaciones multilínea ordenan ubicación, variante e ítem. Cualquier fallo revierte documento, balances, movimientos y auditoría.
+- El costo promedio se redondea a cuatro decimales. Entradas de compra, transferencia, stock inicial y ajustes positivos recalculan; las salidas conservan el promedio y guardan snapshot.
+- `reserved_stock` existe, inicia en cero y no tiene operación pública en esta etapa. Reservas y ventas pertenecen a Etapa 4.
+- `supplier_return` está reservado en el enum, sin flujo ni interfaz hasta definir su regla contable.
+- `admin_inventory_reconciliation()` compara saldos con sumas de movimientos y reporta balances inválidos o movimientos huérfanos; solo un administrador activo puede ejecutarla.
+
+`supabase/tests/rls_inventory.sql` usa perfiles y datos ficticios y termina en `ROLLBACK`. No se ejecutó en remoto porque la migración 004 aún no está aplicada; tampoco se declara concurrencia real sin dos conexiones SQL independientes.

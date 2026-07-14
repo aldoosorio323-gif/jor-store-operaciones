@@ -109,4 +109,12 @@ Los módulos se organizan por dominio en `src/features`; las consultas de catál
 
 ## Estado de integración
 
-Las migraciones 001 y 002 de Etapa 1 y la migración 003 de Etapa 2 están aplicadas en el Supabase de desarrollo. Productos, variantes, almacenes, ubicaciones y proveedores fueron validados manualmente con registros de demostración. `supabase/tests/rls_catalogs.sql` permanece preparado, pero no se declara ejecutado sin una conexión SQL y perfiles ficticios confirmados. No existen inventario, compras, pedidos ni despliegue Netlify.
+Las migraciones 001 y 002 de Etapa 1 y la migración 003 de Etapa 2 están aplicadas en el Supabase de desarrollo. Productos, variantes, almacenes, ubicaciones y proveedores fueron validados manualmente con registros de demostración. `supabase/tests/rls_catalogs.sql` permanece preparado, pero no se declara ejecutado sin una conexión SQL y perfiles ficticios confirmados. La Etapa 3 está implementada en código mediante la migración 004 pendiente; todavía no existe inventario remoto, pedidos ni despliegue Netlify.
+
+## Implementación de Etapa 3
+
+La migración 004, todavía pendiente de aplicación remota, añade compras, líneas, balances, movimientos, transferencias y sus líneas. Las lecturas viven en `src/services/inventory`, se paginan a 20 filas y resuelven relaciones en lotes. Las mutaciones viven en Server Actions y usan el cliente SSR con JWT; `service_role` no participa.
+
+Los borradores admiten solo las columnas comerciales concedidas. Confirmar, cancelar, recibir, despachar y ajustar son RPC `security definer` con `search_path` vacío y autorización interna. `private.apply_inventory_movement` crea o bloquea el balance, valida disponible, aumenta `version`, calcula costo y crea exactamente un movimiento en la misma transacción. Una tabla privada de comandos correlaciona clave, actor, operación y hash del payload para repetir el mismo resultado o rechazar reutilizaciones incompatibles.
+
+La transferencia bloquea y procesa balances origen en orden `ubicación, variante, línea`; la salida no crea stock en destino. Cada recepción bloquea cabecera, línea y balance destino. La conciliación administrativa es de solo lectura. Pedidos y operaciones de reserva permanecen fuera del modelo público.

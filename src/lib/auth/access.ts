@@ -29,7 +29,10 @@ export function decideRouteAccess(
       return { action: "redirect", destination: "/login?error=inactive" };
     }
 
-    if (pathname.startsWith("/app/usuarios") && auth.role !== "administrator") {
+    if (
+      (pathname.startsWith("/app/usuarios") || pathname.startsWith("/app/ajustes"))
+      && auth.role !== "administrator"
+    ) {
       return { action: "redirect", destination: "/app" };
     }
   }

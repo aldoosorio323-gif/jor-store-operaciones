@@ -2,7 +2,7 @@
 
 Aplicación web interna, privada y móvil primero para administrar las operaciones de JOR STORE. El proyecto avanza por etapas y usa Supabase PostgreSQL como única fuente oficial de datos.
 
-> Estado actual: **Etapa 2 — catálogos operativos completados y validados con Supabase real**. Las migraciones `202607130001`, `202607130002` y `202607130003` están aplicadas local y remotamente.
+> Estado actual: **Etapa 3 — compras e inventario implementados en código**. Las migraciones `202607130001`, `202607130002` y `202607130003` están aplicadas local y remotamente. La migración `202607130004` queda pendiente de revisión y aplicación remota manual.
 
 ## Tecnologías
 
@@ -30,12 +30,18 @@ La interfaz está en español, la moneda funcional es PEN y la zona de negocio e
 - Auditoría mínima de invitación, rol, activación, desactivación y recuperación.
 - Productos y variantes con SKU, precio, atributos y borrado lógico.
 - Almacenes y ubicaciones internas controladas por tipo.
-- Proveedores privados, sin compras asociadas todavía.
+- Proveedores privados vinculables a compras.
 - Búsqueda, filtros administrativos, paginación de 20 registros y vistas móviles.
 - Mutaciones exclusivas para administradores; operadores activos consultan solo registros activos.
 - RLS, restricciones relacionales y auditoría transaccional para los cinco catálogos.
+- Compras en borrador, líneas con costo histórico, confirmación y recepción parcial o total.
+- Balances por variante/almacén/ubicación y libro mayor inmutable de movimientos.
+- Costo promedio ponderado con `numeric`, bloqueo de filas, versión e idempotencia.
+- Transferencias con salida completa, stock en tránsito y recepción parcial/completa.
+- Stock inicial y ajustes positivos/negativos, dañados o perdidos, solo para administrador.
+- Conciliación administrativa entre balances y suma histórica de movimientos.
 
-No se implementaron stock, movimientos, compras, pedidos, pagos, envíos, gastos ni dashboard.
+No se implementaron devoluciones a proveedor, clientes, pedidos, reservas de venta, pagos, envíos, gastos, dashboard, Excel ni PWA. `reserved_stock` existe y permanece en cero: no hay operación pública para modificarlo en esta etapa.
 
 ## Requisitos
 
@@ -87,6 +93,12 @@ La validación es diferida: `npm run build` funciona sin credenciales, pero una 
 | `/app/almacenes/nuevo` | Solo administrador activo. |
 | `/app/proveedores` y `/app/proveedores/[id]` | Administrador u operador activo; operador en lectura. |
 | `/app/proveedores/nuevo` | Solo administrador activo. |
+| `/app/compras` y `/app/compras/[id]` | Administrador u operador activo; borradores, confirmación y recepción. |
+| `/app/compras/nueva` | Administrador u operador activo. |
+| `/app/inventario` | Balances paginados para administrador u operador activo. |
+| `/app/inventario/movimientos` | Libro mayor paginado para administrador u operador activo. |
+| `/app/transferencias`, `/app/transferencias/nueva` y `/app/transferencias/[id]` | Administrador u operador activo. |
+| `/app/ajustes` | Solo administrador activo. |
 
 No existe ruta de registro.
 
@@ -107,9 +119,15 @@ GitHub Actions ejecuta `npm ci`, lint, typecheck, test y build en pushes a `desa
 
 Se ejecutaron `npm run lint`, `npm run typecheck`, `npm run test` (44 pruebas) y `npm run build` correctamente. `git diff --check` no reportó errores. La lista de migraciones confirma 001, 002 y 003 tanto en Local como en Remote. Las pruebas SQL de catálogos no se ejecutaron porque este entorno no dispone de `psql`, conexión SQL de pruebas ni perfiles ficticios configurados; no se usó la cuenta administrativa real.
 
+### Verificación local de Etapa 3
+
+La Etapa 3 incorpora pruebas unitarias y estáticas de estados, validaciones, promedio ponderado, RLS, idempotencia, congelamiento, navegación y ausencia de escritura directa. `supabase/tests/rls_inventory.sql` prepara datos y perfiles ficticios, invariantes y `ROLLBACK`. No se ejecutó contra el remoto: la migración 004 todavía no está aplicada y este entorno no dispone de `psql` ni dos conexiones de prueba independientes para afirmar concurrencia real.
+
+Se ejecutaron correctamente `npm install`, `npm run lint`, `npm run typecheck`, `npm run test` (68 pruebas en 18 archivos) y `npm run build`. El `db push --dry-run` propone únicamente `202607130004_purchases_inventory.sql`.
+
 ## Migraciones y pruebas Supabase
 
-Las migraciones 001, 002 y 003 aparecen aplicadas local y remotamente. La migración 003 crea `products`, `product_variants`, `warehouses`, `warehouse_locations` y `suppliers` con RLS, restricciones y auditoría transaccional.
+Las migraciones 001, 002 y 003 aparecen aplicadas local y remotamente. La migración 004 crea `purchases`, `purchase_items`, `inventory_balances`, `inventory_movements`, `inventory_transfers` e `inventory_transfer_items`, además de secuencias y un registro privado de comandos idempotentes. Su aplicación remota queda pendiente de revisión manual.
 
 Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS, restricciones, auditoría y límites de secretos. `supabase/tests/rls_catalogs.sql` prepara verificaciones reproducibles para anónimo, administrador, operador e inactivo, unicidad, relaciones inmutables, borrado y desactivación de padres. Termina con `ROLLBACK`; no se afirma que haya sido ejecutada sin una conexión SQL y perfiles ficticios confirmados.
 
@@ -121,7 +139,8 @@ Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS
 - Funciones `security definer` fijan `search_path` vacío y verifican actor activo/administrador.
 - Los catálogos no admiten DELETE desde clientes; la desactivación de productos/almacenes exige que sus hijos estén inactivos.
 - La auditoría de catálogos guarda actor, entidad, identificador y resúmenes sin correos, teléfonos, direcciones, identificaciones tributarias ni payloads completos.
-- Movimientos, stock y documentos operativos siguen fuera de alcance de esta etapa.
+- Balances y movimientos no conceden INSERT, UPDATE ni DELETE a clientes; las RPC usan el JWT del usuario y nunca `service_role`.
+- Ajustes y conciliación vuelven a comprobar rol administrador en PostgreSQL.
 - Nunca confirmar secretos, datos reales, Excel, CSV, respaldos, bases o logs.
 
 ## Flujo de ramas
@@ -139,4 +158,4 @@ Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS
 - `docs/plan-implementacion.md`: etapas y estado.
 - `docs/reglas-inventario.md`: invariantes futuras de inventario.
 
-La siguiente etapa prevista es **Etapa 3: compras, reposición y movimientos**, pero no debe iniciarse sin una solicitud expresa.
+La siguiente etapa prevista es **Etapa 4: clientes, pedidos, pagos y reservas**, pero no debe iniciarse sin una solicitud expresa y sin revisar/aplicar manualmente la migración 004.

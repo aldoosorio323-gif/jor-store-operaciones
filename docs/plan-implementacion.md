@@ -31,10 +31,11 @@ El proyecto avanza por etapas cerradas. Cada etapa empieza solo por solicitud ex
 ## Etapa 3 — Compras, reposición y movimientos
 
 - **Objetivo:** ingresar stock con costo histórico y establecer el libro mayor.
+- **Estado:** implementada en código; migración 004, revisión SQL y aplicación remota pendientes.
 - **Entregables:** compras/detalles, confirmación y recepción transaccional, balances, movimientos inmutables, costo promedio, transferencias, ajustes y pruebas de concurrencia.
 - **Dependencias:** Etapas 1–2.
 - **Riesgos:** stock negativo, doble recepción, costo incorrecto, deadlocks, movimientos sin balance.
-- **Aceptación:** ninguna escritura directa de stock; operaciones atómicas e idempotentes; transferencia con salida/entrada; reconstrucción de balance conciliada.
+- **Aceptación:** ninguna escritura directa de stock; operaciones atómicas e idempotentes; transferencia con salida/entrada; reconstrucción de balance conciliada. Las pruebas estáticas/unitarias están implementadas y el guion SQL transaccional queda pendiente de ejecución con migración aplicada, perfiles ficticios y conexiones independientes.
 
 ## Etapa 4 — Clientes, pedidos, pagos y reservas
 

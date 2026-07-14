@@ -257,6 +257,14 @@ Etapa 1 implementó `actor_user_id`, `action`, `target_profile_id`, `metadata` y
 
 La migración `202607130003_catalogs.sql`, aplicada local y remotamente, crea las cinco tablas anteriores con auditoría estándar referenciada a `profiles`. Triggers privados asignan fechas y actor desde `auth.uid()`, mantienen los identificadores estables, normalizan SKU/códigos/correo y convierten opcionales vacíos a `null`. RLS permite al administrador activo leer todo y escribir; el operador activo solo lee filas activas, con producto/almacén padre activo; inactivos y anónimos no leen. No crea balances, existencias, movimientos, compras ni pedidos.
 
+## Implementación de Etapa 3
+
+`202607130004_purchases_inventory.sql`, pendiente de revisión y aplicación remota, materializa `purchases`, `purchase_items`, `inventory_balances`, `inventory_movements`, `inventory_transfers` e `inventory_transfer_items`. Añade secuencias privadas para `CMP-AAAA-NNNNNN` y `TRF-AAAA-NNNNNN`, y `private.inventory_commands` como estructura auxiliar no expuesta para idempotencia.
+
+Las cantidades usan `numeric(14,3)`, los costos `numeric(14,4)` y los importes `numeric(14,2)`. Los totales de compra y línea se recalculan en PostgreSQL. El balance es único por variante/almacén/ubicación y valida mediante FK compuesta que la ubicación pertenezca al almacén. `available_stock` es generado. Los movimientos no tienen `updated_at`, rechazan UPDATE/DELETE y conservan ecuaciones de antes + delta = después.
+
+Transiciones implementadas: compra `draft → confirmed → partially_received/received` y cancelación solo sin recepciones; transferencia `draft → confirmed → in_transit → partially_received/received` y cancelación solo antes del despacho. `supplier_return` queda reservado como tipo sin RPC ni interfaz. No existen tipos ni operaciones de venta en la migración 004.
+
 ## Relaciones principales
 
 ```text

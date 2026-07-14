@@ -57,6 +57,16 @@ La migración incremental `202607130002` permite a un operador activo actualizar
 
 La migración `202607130003` habilita RLS en las cinco tablas de catálogos. Las políticas separan SELECT, INSERT y UPDATE; el operador solo ve filas activas y, en variantes/ubicaciones, exige también padre activo. Triggers con funciones privadas asignan actor y fechas desde `auth.uid()`, normalizan entradas, bloquean cambios de padre y rechazan desactivaciones inconsistentes. Los clientes no reciben DELETE.
 
+La migración `202607130004`, pendiente de aplicación remota, habilita RLS en las seis tablas operativas. Administrador y operador activos leen compras, balances, movimientos y transferencias, y administran borradores mediante permisos por columna. Ningún cliente inserta, actualiza o elimina balances o movimientos. Usuario inactivo y anónimo no obtienen filas ni ejecución. No existen políticas DELETE ni `using (true)`.
+
+| Etapa 3 | Administrador activo | Operador activo | Inactivo/anónimo |
+| --- | --- | --- | --- |
+| Compras | Crear/editar borrador, confirmar, cancelar sin recepción y recibir | Igual | Sin acceso |
+| Inventario | Leer balances/movimientos; ajustar y conciliar | Solo lectura | Sin acceso |
+| Transferencias | Crear/editar borrador, confirmar, cancelar antes del despacho, despachar y recibir | Igual | Sin acceso |
+
+Las RPC obtienen el actor desde `auth.uid()`, fijan `search_path = ''` y verifican el rol; no aceptan actor ni auditoría del navegador. Las claves idempotentes completas quedan en el registro cuantitativo/privado necesario, nunca en `audit_logs`. Los errores de PostgreSQL se traducen a mensajes cerrados en las Server Actions.
+
 ## Secretos y navegador
 
 Nunca deben exponerse en el navegador:
@@ -96,6 +106,8 @@ Operaciones sensibles insertan `audit_logs` en la misma transacción, con actor,
 En Etapa 1 se creó una estructura mínima compatible: invitación, cambio de rol, activación, desactivación, bootstrap y recuperación completada. `metadata` guarda solo estados/roles anteriores y nuevos; no guarda correo, contraseñas, tokens, enlaces ni payloads de Auth. La auditoría general se ampliará en su etapa sin reemplazar este historial.
 
 Etapa 2 amplía de forma incremental `audit_logs` con `entity_type` y `entity_id`, además de acciones de creación, actualización, activación y desactivación para productos, variantes, almacenes, ubicaciones y proveedores. Los triggers guardan solo estado o una marca segura de cambio: nunca copian correos, teléfonos, direcciones, identificaciones tributarias ni formularios completos.
+
+Etapa 3 añade acciones de compra, línea, transferencia, recepción y ajuste. Sus metadatos se limitan a estado, número de línea y cantidades; no copian proveedores, notas, referencias ni payloads. El movimiento es el historial cuantitativo y la auditoría registra la transición administrativa.
 
 Después de invitar una cuenta, la acción comprueba por separado el resultado de `admin_record_invitation`. Si esa auditoría falla, no repite ni revierte la invitación: devuelve un estado no exitoso que informa, sin datos personales ni detalle técnico, que la cuenta fue invitada y la auditoría requiere revisión.
 

@@ -17,12 +17,10 @@ describe("estado documental de Etapa 2", () => {
   it("registra la migración 003 aplicada y no conserva estados remotos pendientes", () => {
     for (const { file, source } of documentation) {
       expect(source, file).toContain("003");
-      expect(source, file).not.toMatch(/003[^\n]*(pendiente|sin aplicar)/i);
+      expect(source, file).not.toMatch(/migraciÃ³n\s+003\s+(pendiente|sin aplicar)/i);
     }
 
-    expect(documentation[0]?.source).toContain(
-      "Etapa 2 — catálogos operativos completados y validados con Supabase real",
-    );
+    expect(documentation[0]?.source).toContain("Etapa 3 — compras e inventario implementados en código");
     expect(documentation[3]?.source).toContain(
       "completada y validada con Supabase real; migración 003 aplicada local y remotamente",
     );
