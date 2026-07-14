@@ -20,7 +20,7 @@ describe("estado documental de Etapa 2", () => {
       expect(source, file).not.toMatch(/migración\s+003\s+(pendiente|sin aplicar)/i);
     }
 
-    expect(documentation[0]?.source).toContain("Etapa 3 — compras e inventario implementados en código");
+    expect(documentation[0]?.source).toContain("Etapa 3 completada y validada con Supabase real");
     expect(documentation[3]?.source).toContain(
       "completada y validada con Supabase real; migración 003 aplicada local y remotamente",
     );

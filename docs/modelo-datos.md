@@ -259,11 +259,13 @@ La migración `202607130003_catalogs.sql`, aplicada local y remotamente, crea la
 
 ## Implementación de Etapa 3
 
-`202607130004_purchases_inventory.sql`, pendiente de revisión y aplicación remota, materializa `purchases`, `purchase_items`, `inventory_balances`, `inventory_movements`, `inventory_transfers` e `inventory_transfer_items`. Añade secuencias privadas para `CMP-AAAA-NNNNNN` y `TRF-AAAA-NNNNNN`, y `private.inventory_commands` como estructura auxiliar no expuesta para idempotencia.
+`202607130004_purchases_inventory.sql`, aplicada local y remotamente en el Supabase real de desarrollo, materializa `purchases`, `purchase_items`, `inventory_balances`, `inventory_movements`, `inventory_transfers` e `inventory_transfer_items`. Añade secuencias privadas para `CMP-AAAA-NNNNNN` y `TRF-AAAA-NNNNNN`, y `private.inventory_commands` como estructura auxiliar no expuesta para idempotencia.
 
 Las cantidades usan `numeric(14,3)`, los costos `numeric(14,4)` y los importes `numeric(14,2)`. Los totales de compra y línea se recalculan en PostgreSQL. El balance es único por variante/almacén/ubicación y valida mediante FK compuesta que la ubicación pertenezca al almacén. `available_stock` es generado. Los movimientos no tienen `updated_at`, rechazan UPDATE/DELETE y conservan ecuaciones de antes + delta = después.
 
 Transiciones implementadas: compra `draft → confirmed → partially_received/received` y cancelación solo sin recepciones; transferencia `draft → confirmed → in_transit → partially_received/received` y cancelación solo antes del despacho. `supplier_return` queda reservado como tipo sin RPC ni interfaz. No existen tipos ni operaciones de venta en la migración 004.
+
+La Etapa 3 está completada y validada con Supabase real. Compras, confirmaciones, recepciones, balances, movimientos inmutables, transferencias y ajustes fueron comprobados manualmente con datos ficticios; también se verificaron el costo promedio ponderado y la zona `America/Lima`. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada.
 
 ## Relaciones principales
 

@@ -2,7 +2,7 @@
 
 Aplicación web interna, privada y móvil primero para administrar las operaciones de JOR STORE. El proyecto avanza por etapas y usa Supabase PostgreSQL como única fuente oficial de datos.
 
-> Estado actual: **Etapa 3 — compras e inventario implementados en código**. Las migraciones `202607130001`, `202607130002` y `202607130003` están aplicadas local y remotamente. La migración `202607130004` queda pendiente de revisión y aplicación remota manual.
+> Estado actual: **Etapa 3 completada y validada con Supabase real**. Las migraciones `202607130001`, `202607130002`, `202607130003` y `202607130004` están aplicadas local y remotamente. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada.
 
 ## Tecnologías
 
@@ -121,13 +121,13 @@ Se ejecutaron `npm run lint`, `npm run typecheck`, `npm run test` (44 pruebas) y
 
 ### Verificación local de Etapa 3
 
-La Etapa 3 incorpora pruebas unitarias y estáticas de estados, validaciones, promedio ponderado, RLS, idempotencia, congelamiento, navegación y ausencia de escritura directa. `supabase/tests/rls_inventory.sql` prepara datos y perfiles ficticios, invariantes y `ROLLBACK`. No se ejecutó contra el remoto: la migración 004 todavía no está aplicada y este entorno no dispone de `psql` ni dos conexiones de prueba independientes para afirmar concurrencia real.
+La Etapa 3 quedó completada y validada con Supabase real. Con datos exclusivamente ficticios se comprobaron manualmente la creación y confirmación de compras, la recepción que genera inventario, el stock inicial, el costo promedio ponderado, los balances, el libro mayor inmutable, las transferencias sin stock anticipado en destino y los ajustes negativos. La presentación y conversión de fechas en `America/Lima` también fueron verificadas.
 
-Se ejecutaron correctamente `npm install`, `npm run lint`, `npm run typecheck`, `npm run test` (68 pruebas en 18 archivos) y `npm run build`. El `db push --dry-run` propone únicamente `202607130004_purchases_inventory.sql`.
+La batería automatizada cubre estados, validaciones, zona horaria, promedio ponderado, RLS, idempotencia, congelamiento, navegación, integridad UTF-8 y ausencia de escritura directa. `supabase/tests/rls_inventory.sql` conserva escenarios ficticios transaccionales con `ROLLBACK`. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes y no se presentan como ejecutadas.
 
 ## Migraciones y pruebas Supabase
 
-Las migraciones 001, 002 y 003 aparecen aplicadas local y remotamente. La migración 004 crea `purchases`, `purchase_items`, `inventory_balances`, `inventory_movements`, `inventory_transfers` e `inventory_transfer_items`, además de secuencias y un registro privado de comandos idempotentes. Su aplicación remota queda pendiente de revisión manual.
+Las migraciones 001, 002, 003 y 004 aparecen aplicadas local y remotamente. La migración 004 crea `purchases`, `purchase_items`, `inventory_balances`, `inventory_movements`, `inventory_transfers` e `inventory_transfer_items`, además de secuencias y un registro privado de comandos idempotentes.
 
 Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS, restricciones, auditoría y límites de secretos. `supabase/tests/rls_catalogs.sql` prepara verificaciones reproducibles para anónimo, administrador, operador e inactivo, unicidad, relaciones inmutables, borrado y desactivación de padres. Termina con `ROLLBACK`; no se afirma que haya sido ejecutada sin una conexión SQL y perfiles ficticios confirmados.
 
@@ -158,4 +158,4 @@ Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS
 - `docs/plan-implementacion.md`: etapas y estado.
 - `docs/reglas-inventario.md`: invariantes futuras de inventario.
 
-La siguiente etapa prevista es **Etapa 4: clientes, pedidos, pagos y reservas**, pero no debe iniciarse sin una solicitud expresa y sin revisar/aplicar manualmente la migración 004.
+La siguiente etapa prevista es **Etapa 4: clientes, pedidos, pagos y reservas**, pero todavía no ha sido iniciada y requiere una solicitud expresa independiente.

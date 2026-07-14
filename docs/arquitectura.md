@@ -2,7 +2,7 @@
 
 ## Alcance
 
-JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. Las integraciones reales de Etapas 1 y 2 están validadas y sus migraciones 001, 002 y 003 están aplicadas.
+JOR Store Operaciones es una aplicación web privada, responsive y móvil primero. Next.js entrega la interfaz y la capa de servidor; Supabase concentra autenticación, PostgreSQL y almacenamiento; GitHub conserva el historial; Netlify alojará la aplicación en una etapa futura. Las integraciones reales de las Etapas 1, 2 y 3 están validadas y sus migraciones 001, 002, 003 y 004 están aplicadas local y remotamente.
 
 ## Vista general
 
@@ -109,11 +109,11 @@ Los módulos se organizan por dominio en `src/features`; las consultas de catál
 
 ## Estado de integración
 
-Las migraciones 001 y 002 de Etapa 1 y la migración 003 de Etapa 2 están aplicadas en el Supabase de desarrollo. Productos, variantes, almacenes, ubicaciones y proveedores fueron validados manualmente con registros de demostración. `supabase/tests/rls_catalogs.sql` permanece preparado, pero no se declara ejecutado sin una conexión SQL y perfiles ficticios confirmados. La Etapa 3 está implementada en código mediante la migración 004 pendiente; todavía no existe inventario remoto, pedidos ni despliegue Netlify.
+Las migraciones 001 y 002 de Etapa 1, la migración 003 de Etapa 2 y la migración 004 de Etapa 3 están aplicadas en el Supabase real de desarrollo. Productos, variantes, almacenes, ubicaciones, proveedores, compras, recepciones, balances, movimientos, transferencias y ajustes fueron validados manualmente con datos ficticios. El costo promedio ponderado y la conversión explícita de `America/Lima` a UTC fueron verificados. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada y no existe despliegue Netlify.
 
 ## Implementación de Etapa 3
 
-La migración 004, todavía pendiente de aplicación remota, añade compras, líneas, balances, movimientos, transferencias y sus líneas. Las lecturas viven en `src/services/inventory`, se paginan a 20 filas y resuelven relaciones en lotes. Las mutaciones viven en Server Actions y usan el cliente SSR con JWT; `service_role` no participa.
+La migración 004, aplicada local y remotamente, añade compras, líneas, balances, movimientos, transferencias y sus líneas. Las lecturas viven en `src/services/inventory`, se paginan a 20 filas y resuelven relaciones en lotes. Las mutaciones viven en Server Actions y usan el cliente SSR con JWT; `service_role` no participa.
 
 Los borradores admiten solo las columnas comerciales concedidas. Confirmar, cancelar, recibir, despachar y ajustar son RPC `security definer` con `search_path` vacío y autorización interna. `private.apply_inventory_movement` crea o bloquea el balance, valida disponible, aumenta `version`, calcula costo y crea exactamente un movimiento en la misma transacción. Una tabla privada de comandos correlaciona clave, actor, operación y hash del payload para repetir el mismo resultado o rechazar reutilizaciones incompatibles.
 

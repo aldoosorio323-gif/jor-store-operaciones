@@ -96,7 +96,7 @@ El costo de cada `purchase_item` se conserva. Salidas no recalculan el promedio;
 
 ## Alcance implementado en Etapa 3
 
-- La migración 004 está implementada en código y pendiente de aplicación remota.
+- La migración 004 está aplicada local y remotamente, y la Etapa 3 está completada y validada con Supabase real.
 - `private.apply_inventory_movement` es el único punto que cambia físico, preserva reservado, incrementa versión y escribe el movimiento.
 - Recepciones de compra, despacho/recepción de transferencia y ajustes usan claves idempotentes; el mismo actor, operación y payload recuperan el resultado, mientras un payload distinto se rechaza.
 - Los bloqueos se toman después de bloquear documento/línea; operaciones multilínea ordenan ubicación, variante e ítem. Cualquier fallo revierte documento, balances, movimientos y auditoría.
@@ -108,4 +108,4 @@ El costo de cada `purchase_item` se conserva. Salidas no recalculan el promedio;
 - `supplier_return` está reservado en el enum, sin flujo ni interfaz hasta definir su regla contable.
 - `admin_inventory_reconciliation()` compara saldos con sumas de movimientos y reporta balances inválidos o movimientos huérfanos; solo un administrador activo puede ejecutarla.
 
-`supabase/tests/rls_inventory.sql` usa perfiles y datos ficticios y termina en `ROLLBACK`. No se ejecutó en remoto porque la migración 004 aún no está aplicada; tampoco se declara concurrencia real sin dos conexiones SQL independientes.
+Compras, confirmaciones, recepciones, balances, movimientos, transferencias, ajustes, costo promedio ponderado y la zona `America/Lima` fueron verificados manualmente con datos ficticios. `supabase/tests/rls_inventory.sql` conserva escenarios transaccionales y termina en `ROLLBACK`. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes y no se declaran ejecutadas. La Etapa 4 todavía no ha sido iniciada.

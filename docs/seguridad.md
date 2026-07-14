@@ -57,7 +57,7 @@ La migración incremental `202607130002` permite a un operador activo actualizar
 
 La migración `202607130003` habilita RLS en las cinco tablas de catálogos. Las políticas separan SELECT, INSERT y UPDATE; el operador solo ve filas activas y, en variantes/ubicaciones, exige también padre activo. Triggers con funciones privadas asignan actor y fechas desde `auth.uid()`, normalizan entradas, bloquean cambios de padre y rechazan desactivaciones inconsistentes. Los clientes no reciben DELETE.
 
-La migración `202607130004`, pendiente de aplicación remota, habilita RLS en las seis tablas operativas. Administrador y operador activos leen compras, balances, movimientos y transferencias, y administran borradores mediante permisos por columna. Ningún cliente inserta, actualiza o elimina balances o movimientos. Usuario inactivo y anónimo no obtienen filas ni ejecución. No existen políticas DELETE ni `using (true)`.
+La migración `202607130004`, aplicada local y remotamente, habilita RLS en las seis tablas operativas. Administrador y operador activos leen compras, balances, movimientos y transferencias, y administran borradores mediante permisos por columna. Ningún cliente inserta, actualiza o elimina balances o movimientos. Usuario inactivo y anónimo no obtienen filas ni ejecución. No existen políticas DELETE ni `using (true)`.
 
 | Etapa 3 | Administrador activo | Operador activo | Inactivo/anónimo |
 | --- | --- | --- | --- |
@@ -142,4 +142,4 @@ RLS probada, signup desactivado, buckets privados, secretos en hosting, URLs per
 
 ## Verificación
 
-Etapas 1 y 2 están conectadas al Supabase real de desarrollo; las migraciones 001, 002 y 003 están aplicadas local y remotamente. Las pruebas unitarias/estáticas verifican Zod, permisos, navegación, ausencia de `service_role` cliente y estructura de migración/RLS. `supabase/tests/rls_catalogs.sql` queda preparado con `ROLLBACK`; no se declara ejecutado porque este entorno no dispone de `psql`, conexión SQL de pruebas ni perfiles ficticios configurados.
+Las Etapas 1, 2 y 3 están conectadas y validadas con el Supabase real de desarrollo; las migraciones 001, 002, 003 y 004 están aplicadas local y remotamente. En Etapa 3 se verificaron manualmente, con datos ficticios, compras, confirmaciones, recepciones, balances, movimientos inmutables, transferencias, ajustes, costo promedio ponderado y zona `America/Lima`. Las pruebas unitarias/estáticas verifican Zod, permisos, navegación, ausencia de `service_role` cliente y estructura de migración/RLS. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada.
