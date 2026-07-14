@@ -2,7 +2,7 @@
 
 Aplicación web interna, privada y móvil primero para administrar las operaciones de JOR STORE. El proyecto avanza por etapas y usa Supabase PostgreSQL como única fuente oficial de datos.
 
-> Estado actual: **Etapa 3 completada y validada con Supabase real**. Las migraciones `202607130001`, `202607130002`, `202607130003` y `202607130004` están aplicadas local y remotamente. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada.
+> Estado actual: **Etapa 3 completada y validada con Supabase real; Etapa 4 implementada en código**. Las migraciones `202607130001`–`202607130004` están aplicadas local y remotamente. La migración `202607130005` está pendiente de revisión y aplicación remota. Las pruebas SQL y de concurrencia real de Etapa 4 continúan pendientes.
 
 ## Tecnologías
 
@@ -40,8 +40,11 @@ La interfaz está en español, la moneda funcional es PEN y la zona de negocio e
 - Transferencias con salida completa, stock en tránsito y recepción parcial/completa.
 - Stock inicial y ajustes positivos/negativos, dañados o perdidos, solo para administrador.
 - Conciliación administrativa entre balances y suma histórica de movimientos.
+- Clientes privados con búsqueda, edición y activación administrativa.
+- Pedidos con reserva atómica, liberación, despacho parcial/completo y devolución.
+- Pagos pendientes, confirmación operativa, cancelación y reembolso administrativo.
 
-No se implementaron devoluciones a proveedor, clientes, pedidos, reservas de venta, pagos, envíos, gastos, dashboard, Excel ni PWA. `reserved_stock` existe y permanece en cero: no hay operación pública para modificarlo en esta etapa.
+No se implementaron devoluciones a proveedor, envíos de terceros, gastos, dashboard, Excel ni PWA.
 
 ## Requisitos
 
@@ -99,6 +102,9 @@ La validación es diferida: `npm run build` funciona sin credenciales, pero una 
 | `/app/inventario/movimientos` | Libro mayor paginado para administrador u operador activo. |
 | `/app/transferencias`, `/app/transferencias/nueva` y `/app/transferencias/[id]` | Administrador u operador activo. |
 | `/app/ajustes` | Solo administrador activo. |
+| `/app/clientes`, `/app/clientes/nuevo` y `/app/clientes/[id]` | Administrador u operador activo; activación solo administrador. |
+| `/app/pedidos`, `/app/pedidos/nuevo` y `/app/pedidos/[id]` | Administrador u operador activo. |
+| `/app/pagos` y `/app/pagos/[id]` | Administrador u operador activo; reembolso solo administrador. |
 
 No existe ruta de registro.
 
@@ -158,4 +164,6 @@ Las pruebas unitarias/estáticas cubren validaciones, permisos, navegación, RLS
 - `docs/plan-implementacion.md`: etapas y estado.
 - `docs/reglas-inventario.md`: invariantes futuras de inventario.
 
-La siguiente etapa prevista es **Etapa 4: clientes, pedidos, pagos y reservas**, pero todavía no ha sido iniciada y requiere una solicitud expresa independiente.
+### Etapa 4 implementada en código
+
+La Etapa 4 incorpora clientes privados, pedidos, líneas con balance exacto, reservas, liberaciones, despachos parciales o completos, devoluciones de cliente y pagos. Administrador y operador activos gestionan la operación; solo el administrador cambia el estado de clientes, reembolsa pagos y ejecuta conciliación financiera. La migración 005 está pendiente de revisión y aplicación remota. `supabase/tests/rls_sales.sql` no se ejecutó porque la migración aún no está aplicada y no se usaron cuentas reales. Envíos de terceros, gastos y dashboard no existen; la Etapa 5 no ha sido iniciada.

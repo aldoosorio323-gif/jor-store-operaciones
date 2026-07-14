@@ -1,0 +1,2 @@
+import Link from "next/link";import { CustomerForm } from "@/components/sales/sales-forms";import { requireActiveUser } from "@/lib/auth/session";
+export default async function Page(){await requireActiveUser();return <section className="mx-auto max-w-3xl"><Link href="/app/clientes" className="font-semibold text-emerald-800">← Clientes</Link><h1 className="mt-4 text-3xl font-semibold">Nuevo cliente</h1><div className="mt-6 rounded-2xl border bg-white p-6"><CustomerForm/></div></section>}

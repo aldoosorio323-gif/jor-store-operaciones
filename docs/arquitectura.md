@@ -109,7 +109,7 @@ Los módulos se organizan por dominio en `src/features`; las consultas de catál
 
 ## Estado de integración
 
-Las migraciones 001 y 002 de Etapa 1, la migración 003 de Etapa 2 y la migración 004 de Etapa 3 están aplicadas en el Supabase real de desarrollo. Productos, variantes, almacenes, ubicaciones, proveedores, compras, recepciones, balances, movimientos, transferencias y ajustes fueron validados manualmente con datos ficticios. El costo promedio ponderado y la conversión explícita de `America/Lima` a UTC fueron verificados. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada y no existe despliegue Netlify.
+Las migraciones 001–004 están aplicadas en el Supabase real de desarrollo y la Etapa 3 está completada. La Etapa 4 está implementada en código mediante la migración 005, todavía pendiente de revisión y aplicación remota. `src/features/sales`, `src/services/sales`, Server Actions y rutas privadas separan presentación, consultas y mutaciones. Reservas, despachos y devoluciones delegan su atomicidad a PostgreSQL y al libro mayor. Las pruebas SQL y de concurrencia real de Etapa 4 continúan pendientes. La Etapa 5 no ha sido iniciada y no existe despliegue Netlify.
 
 ## Implementación de Etapa 3
 
@@ -117,4 +117,4 @@ La migración 004, aplicada local y remotamente, añade compras, líneas, balanc
 
 Los borradores admiten solo las columnas comerciales concedidas. Confirmar, cancelar, recibir, despachar y ajustar son RPC `security definer` con `search_path` vacío y autorización interna. `private.apply_inventory_movement` crea o bloquea el balance, valida disponible, aumenta `version`, calcula costo y crea exactamente un movimiento en la misma transacción. Una tabla privada de comandos correlaciona clave, actor, operación y hash del payload para repetir el mismo resultado o rechazar reutilizaciones incompatibles.
 
-La transferencia bloquea y procesa balances origen en orden `ubicación, variante, línea`; la salida no crea stock en destino. Cada recepción bloquea cabecera, línea y balance destino. La conciliación administrativa es de solo lectura. Pedidos y operaciones de reserva permanecen fuera del modelo público.
+La transferencia bloquea y procesa balances origen en orden `ubicación, variante, línea`; la salida no crea stock en destino. Cada recepción bloquea cabecera, línea y balance destino. La Etapa 4 reutiliza el mismo libro mayor para reservas, liberaciones, despachos y devoluciones, con referencias compuestas al pedido y su línea.

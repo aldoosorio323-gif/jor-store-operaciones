@@ -27,6 +27,10 @@ export const movementTypeLabels: Record<MovementType, string> = {
   damaged: "Mercadería dañada",
   lost: "Mercadería perdida",
   initial_stock: "Stock inicial",
+  sale_reservation: "Reserva de venta",
+  reservation_release: "Liberación de reserva",
+  sale_dispatch: "Despacho de venta",
+  customer_return: "Devolución de cliente",
 };
 
 export const canEditPurchase = (status: PurchaseStatus) => status === "draft";

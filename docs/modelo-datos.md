@@ -265,7 +265,7 @@ Las cantidades usan `numeric(14,3)`, los costos `numeric(14,4)` y los importes `
 
 Transiciones implementadas: compra `draft → confirmed → partially_received/received` y cancelación solo sin recepciones; transferencia `draft → confirmed → in_transit → partially_received/received` y cancelación solo antes del despacho. `supplier_return` queda reservado como tipo sin RPC ni interfaz. No existen tipos ni operaciones de venta en la migración 004.
 
-La Etapa 3 está completada y validada con Supabase real. Compras, confirmaciones, recepciones, balances, movimientos inmutables, transferencias y ajustes fueron comprobados manualmente con datos ficticios; también se verificaron el costo promedio ponderado y la zona `America/Lima`. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 4 todavía no ha sido iniciada.
+La Etapa 3 está completada y validada con Supabase real. La Etapa 4 está implementada en código y su migración 005 está pendiente de aplicación remota. Añade `customers`, `orders`, `order_items` y `payments`; las líneas fijan `(balance_id, variant_id, warehouse_id, location_id)` y el libro mayor enlaza `(order_id, order_item_id)`. Los nuevos movimientos son `sale_reservation`, `reservation_release`, `sale_dispatch` y `customer_return`. Los totales, reservas, pagos acumulados y transiciones se calculan en PostgreSQL. Las pruebas SQL y de concurrencia real continúan pendientes. La Etapa 5 no ha sido iniciada.
 
 ## Relaciones principales
 

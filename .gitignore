@@ -38,6 +38,8 @@ credentials.json
 *.sqlite
 *.sqlite3
 **/*clientes*
+!src/app/app/clientes/
+!src/app/app/clientes/**
 **/*customers-data*
 
 # Logs y temporales

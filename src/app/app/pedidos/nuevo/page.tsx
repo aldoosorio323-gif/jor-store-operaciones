@@ -1,0 +1,2 @@
+import { OrderForm } from "@/components/sales/sales-forms";import { requireActiveUser } from "@/lib/auth/session";import { listCustomerOptions } from "@/services/sales";
+export default async function Page(){await requireActiveUser();const customers=await listCustomerOptions();return <section className="mx-auto max-w-3xl"><h1 className="text-3xl font-semibold">Nuevo pedido</h1><div className="mt-6 rounded-2xl border bg-white p-6"><OrderForm customers={customers}/></div></section>}

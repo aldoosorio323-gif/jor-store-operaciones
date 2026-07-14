@@ -35,9 +35,11 @@ El proyecto avanza por etapas cerradas. Cada etapa empieza solo por solicitud ex
 - **Entregables:** compras/detalles, confirmación y recepción transaccional, balances, movimientos inmutables, costo promedio, transferencias, ajustes y pruebas de concurrencia.
 - **Dependencias:** Etapas 1–2.
 - **Riesgos:** stock negativo, doble recepción, costo incorrecto, deadlocks, movimientos sin balance.
-- **Aceptación:** ninguna escritura directa de stock; operaciones atómicas e idempotentes; transferencia con salida/entrada; reconstrucción de balance conciliada. Las pruebas estáticas/unitarias están implementadas. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes y no se declaran ejecutadas. La Etapa 4 todavía no ha sido iniciada.
+- **Aceptación:** completada y validada con Supabase real. Ninguna escritura directa de stock; operaciones atómicas e idempotentes; transferencia con salida/entrada; reconstrucción de balance conciliada. Las pruebas reales de concurrencia de Etapa 3 con conexiones independientes continúan pendientes.
 
 ## Etapa 4 — Clientes, pedidos, pagos y reservas
+
+**Estado:** implementada en código. Migración 005 pendiente de revisión y aplicación remota. Incluye clientes, pedidos, reserva/liberación, despacho parcial/completo, devolución de cliente, pagos, reembolsos administrativos y conciliación financiera. Las pruebas SQL y de concurrencia real no se ejecutaron. La Etapa 5 no ha sido iniciada.
 
 - **Objetivo:** gestionar ventas sin mezclar estados comerciales, financieros y logísticos.
 - **Entregables:** clientes, pedidos/detalles, reserva/liberación/despacho, pagos, saldos, devoluciones y vistas móviles.
