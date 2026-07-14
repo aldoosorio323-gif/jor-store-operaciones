@@ -108,4 +108,6 @@ El costo de cada `purchase_item` se conserva. Salidas no recalculan el promedio;
 - `supplier_return` está reservado en el enum, sin flujo ni interfaz hasta definir su regla contable.
 - `admin_inventory_reconciliation()` compara saldos con sumas de movimientos y reporta balances inválidos o movimientos huérfanos; solo un administrador activo puede ejecutarla.
 
-La Etapa 3 está completada y validada con Supabase real. La Etapa 4 está implementada en código con reservas, liberaciones, despachos y devoluciones inmutables; la migración 005 está pendiente de aplicación remota. Cada línea de pedido referencia un balance exacto, no se permite sobreventa y la cancelación libera solo lo aún reservado. `supabase/tests/rls_sales.sql` termina con `ROLLBACK`, pero no fue ejecutado. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes. La Etapa 5 no ha sido iniciada.
+La Etapa 5A está implementada en código y se limita a logística sobre cantidades ya despachadas.
+
+Las Etapas 3 y 4 están completadas y validadas con Supabase real; la migración 005 está aplicada local y remotamente. La Etapa 5A registra logística sobre cantidades ya despachadas y no modifica balances, reservas, movimientos ni costo promedio. Un retorno logístico no crea automáticamente una devolución comercial, un reembolso ni una entrada de inventario. La migración 006 permanece pendiente de aplicación remota y sus pruebas SQL y de concurrencia real con conexiones independientes continúan pendientes.

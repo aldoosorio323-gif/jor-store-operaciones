@@ -20,14 +20,14 @@ function collectSourceFiles(target: string): string[] {
 describe("sistema visual operativo", () => {
   it("agrupa la navegación y conserva controles exclusivos del administrador", () => {
     expect(getPrivateNavigationGroups("administrator").map((group) => group.label)).toEqual([
-      "Principal", "Ventas", "Inventario", "Abastecimiento", "Configuración", "Cuenta",
+      "Principal", "Ventas", "Logística", "Inventario", "Abastecimiento", "Configuración", "Cuenta",
     ]);
     const operator = getPrivateNavigationItems("operator");
     const administrator = getPrivateNavigationItems("administrator");
-    for (const href of ["/app/clientes", "/app/pedidos", "/app/pagos", "/app/productos", "/app/inventario", "/app/inventario/movimientos", "/app/transferencias", "/app/compras", "/app/proveedores", "/app/almacenes", "/app/perfil"]) {
+    for (const href of ["/app/clientes", "/app/pedidos", "/app/pagos", "/app/envios", "/app/productos", "/app/inventario", "/app/inventario/movimientos", "/app/transferencias", "/app/compras", "/app/proveedores", "/app/almacenes", "/app/perfil"]) {
       expect(operator.some((item) => item.href === href)).toBe(true);
     }
-    for (const href of ["/app/ajustes", "/app/usuarios"]) {
+    for (const href of ["/app/transportistas", "/app/ajustes", "/app/usuarios"]) {
       expect(operator.some((item) => item.href === href)).toBe(false);
       expect(administrator.some((item) => item.href === href)).toBe(true);
     }

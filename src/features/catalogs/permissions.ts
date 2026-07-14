@@ -14,6 +14,10 @@ export function getPrivateNavigationGroups(role: RoleCode): PrivateNavigationGro
       { href: "/app/pedidos", label: "Pedidos", icon: "orders" },
       { href: "/app/pagos", label: "Pagos", icon: "payments" },
     ] },
+    { label: "Logística", items: [
+      { href: "/app/envios", label: "Envíos", icon: "shipments" },
+      ...(role === "administrator" ? [{ href: "/app/transportistas", label: "Transportistas", icon: "carriers" as const }] : []),
+    ] },
     { label: "Inventario", items: [
       { href: "/app/productos", label: "Productos", icon: "products" },
       { href: "/app/inventario", label: "Inventario", icon: "inventory" },

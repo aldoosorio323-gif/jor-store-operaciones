@@ -20,13 +20,13 @@ describe("estado documental de Etapa 3", () => {
     }
   });
 
-  it("mantiene el cierre de Etapa 3 durante la implementación de Etapa 4", () => {
+  it("mantiene el cierre histórico durante la implementación de Etapa 5A", () => {
     for (const { file, source } of files) {
       expect(source, file).toMatch(/(?:concurrencia real|pruebas reales de concurrencia)[^\n]*pendiente/i);
       expect(source, file).not.toMatch(/concurrencia real (?:fue |ha sido )?(?:ejecutada|aprobada|validada)/i);
-      expect(source, file).toMatch(/Etapa 4[\s\S]{0,100}implementada en código/i);
+      expect(source, file).toMatch(/(?:Etapa 4|Etapas (?:1–4|3 y 4))[\s\S]{0,260}(completada|validada)/i);
     }
-    expect(files[0]?.source).toContain("migración 005");
+    expect(files[0]?.source).toContain("migración 006");
     expect(files[5]?.source).toContain("sale_reservation");
   });
 });

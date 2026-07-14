@@ -109,7 +109,7 @@ Los módulos se organizan por dominio en `src/features`; las consultas de catál
 
 ## Estado de integración
 
-Las migraciones 001–004 están aplicadas en el Supabase real de desarrollo y la Etapa 3 está completada. La Etapa 4 está implementada en código mediante la migración 005, todavía pendiente de revisión y aplicación remota. `src/features/sales`, `src/services/sales`, Server Actions y rutas privadas separan presentación, consultas y mutaciones. Reservas, despachos y devoluciones delegan su atomicidad a PostgreSQL y al libro mayor. Las pruebas SQL y de concurrencia real de Etapa 4 continúan pendientes. La Etapa 5 no ha sido iniciada y no existe despliegue Netlify.
+Las migraciones 001–005 están aplicadas en el Supabase real de desarrollo y la Etapa 4 está completada. La Etapa 5A está implementada en código mediante la migración 006, todavía pendiente de revisión y aplicación remota. `src/features/shipping`, `src/services/shipping`, Server Actions y rutas privadas separan presentación, consultas y mutaciones. Las transiciones logísticas e idempotencia se delegan a PostgreSQL sin modificar pagos, estados comerciales ni inventario. Las pruebas SQL y de concurrencia real de Etapa 5A continúan pendientes. Gastos y dashboard no han sido iniciados y no existe despliegue Netlify.
 
 ## Implementación de Etapa 3
 

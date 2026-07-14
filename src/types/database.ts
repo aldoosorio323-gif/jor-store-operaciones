@@ -28,6 +28,8 @@ export type OrderStatus = "draft" | "new" | "confirmed" | "preparing" | "shipped
 export type OrderPaymentStatus = "pending" | "partial" | "paid" | "refunded" | "cancelled";
 export type PaymentStatus = "pending" | "paid" | "refunded" | "cancelled";
 export type PaymentMethod = "cash" | "bank_transfer" | "card" | "digital_wallet" | "other";
+export type ShipmentStatus = "draft" | "ready" | "handed_to_carrier" | "in_transit" | "delivered" | "delivery_failed" | "returning" | "returned" | "cancelled";
+export type ShipmentEventType = "shipment_created" | "shipment_ready" | "handed_to_carrier" | "transit_update" | "delivery_attempt" | "delivered" | "delivery_failed" | "return_started" | "returned" | "cancelled" | "note_added";
 
 export type Database = {
   public: {
@@ -292,6 +294,17 @@ export type Database = {
         Insert: { id?:string; payment_number?:string; order_id:string; amount:number; method:PaymentMethod; status?:PaymentStatus; refunded_payment_id?:string|null; paid_at?:string|null; reference?:string|null; notes?:string|null; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
         Update: Partial<Database["public"]["Tables"]["payments"]["Insert"]>; Relationships: [];
       };
+      carriers: {
+        Row:{id:string;code:string;name:string;contact_name:string|null;email:string|null;phone:string|null;tracking_url_template:string|null;notes:string|null;is_active:boolean;created_at:string;updated_at:string;created_by:string;updated_by:string};
+        Insert:{id?:string;code:string;name:string;contact_name?:string|null;email?:string|null;phone?:string|null;tracking_url_template?:string|null;notes?:string|null;is_active?:boolean;created_at?:string;updated_at?:string;created_by?:string;updated_by?:string};
+        Update:Partial<Database["public"]["Tables"]["carriers"]["Insert"]>;Relationships:[];
+      };
+      shipments: {
+        Row:{id:string;shipment_number:string;order_id:string;carrier_id:string|null;status:ShipmentStatus;tracking_number:string|null;recipient_name:string;recipient_phone:string|null;address_line:string;district:string|null;province:string|null;department:string|null;address_reference:string|null;shipping_cost:number;currency_code:"PEN";ready_at:string|null;handed_to_carrier_at:string|null;delivered_at:string|null;returned_at:string|null;cancelled_at:string|null;cancelled_by:string|null;version:number;notes:string|null;created_at:string;updated_at:string;created_by:string;updated_by:string};
+        Insert:never;Update:never;Relationships:[];
+      };
+      shipment_items:{Row:{id:string;shipment_id:string;order_id:string;order_item_id:string;quantity:number;created_at:string;updated_at:string;created_by:string;updated_by:string};Insert:never;Update:never;Relationships:[]};
+      shipment_events:{Row:{id:string;shipment_id:string;event_type:ShipmentEventType;occurred_at:string;location:string|null;description:string|null;responsible_user_id:string;metadata:Json;created_at:string;created_by:string};Insert:never;Update:never;Relationships:[]};
     };
     Views: Record<string, never>;
     Functions: {
@@ -374,6 +387,18 @@ export type Database = {
       refund_payment: { Args:{p_payment_id:string;p_amount:number;p_reason:string;p_idempotency_key:string}; Returns:Json };
       check_customer_duplicate_candidates: { Args:{p_document_type:string|null;p_document_number:string|null;p_email:string|null;p_phone:string|null;p_full_name:string}; Returns:Array<{document_match:boolean;email_match:boolean;phone_match:boolean;name_match:boolean}> };
       admin_financial_reconciliation: { Args:Record<string,never>; Returns:Array<{issue_type:string;order_id:string;payment_id:string|null;expected_value:number|null;actual_value:number|null}> };
+      create_shipment:{Args:{p_order_id:string;p_carrier_id:string|null;p_recipient_name:string;p_recipient_phone:string|null;p_address_line:string;p_district:string|null;p_province:string|null;p_department:string|null;p_address_reference:string|null;p_shipping_cost:number;p_tracking_number:string|null;p_notes:string|null};Returns:string};
+      add_shipment_item:{Args:{p_shipment_id:string;p_order_item_id:string;p_quantity:number};Returns:string};
+      remove_shipment_item:{Args:{p_shipment_item_id:string};Returns:string};
+      mark_shipment_ready:{Args:{p_shipment_id:string;p_idempotency_key:string};Returns:Json};
+      hand_shipment_to_carrier:{Args:{p_shipment_id:string;p_location:string|null;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      add_shipment_transit_event:{Args:{p_shipment_id:string;p_location:string|null;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      register_delivery_attempt:{Args:{p_shipment_id:string;p_delivered:boolean;p_location:string|null;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      deliver_shipment:{Args:{p_shipment_id:string;p_location:string|null;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      start_shipment_return:{Args:{p_shipment_id:string;p_location:string|null;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      complete_shipment_return:{Args:{p_shipment_id:string;p_location:string|null;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      cancel_shipment:{Args:{p_shipment_id:string;p_description:string|null;p_idempotency_key:string};Returns:Json};
+      admin_shipping_reconciliation:{Args:Record<string,never>;Returns:Array<{issue_type:string;shipment_id:string;order_id:string;shipment_item_id:string|null;details:Json}>};
     };
     Enums: {
       location_type: LocationType;
@@ -384,6 +409,8 @@ export type Database = {
       order_payment_status: OrderPaymentStatus;
       payment_status: PaymentStatus;
       payment_method: PaymentMethod;
+      shipment_status: ShipmentStatus;
+      shipment_event_type: ShipmentEventType;
     };
     CompositeTypes: Record<string, never>;
   };

@@ -20,7 +20,8 @@ Se implementarán como enums PostgreSQL o tablas catálogo cuando se necesite co
 - `order_status`: `draft`, `new`, `confirmed`, `preparing`, `shipped`, `delivered`, `cancelled`, `returned`.
 - `order_payment_status`: `pending`, `partial`, `paid`, `refunded`, `cancelled`.
 - `payment_status`: `pending`, `paid`, `refunded`, `cancelled`; `partial` es el estado agregado del pedido cuando los pagos netos no cubren el total.
-- `shipment_status`: `pending`, `preparing`, `dispatched`, `in_transit`, `delivered`, `failed`, `returned`.
+- `shipment_status`: `draft`, `ready`, `handed_to_carrier`, `in_transit`, `delivered`, `delivery_failed`, `returning`, `returned`, `cancelled`.
+- `shipment_event_type`: `shipment_created`, `shipment_ready`, `handed_to_carrier`, `transit_update`, `delivery_attempt`, `delivered`, `delivery_failed`, `return_started`, `returned`, `cancelled`, `note_added`.
 - `transfer_status`: `draft`, `confirmed`, `in_transit`, `partially_received`, `received`, `cancelled`.
 - `movement_type`: `purchase_entry`, `sale_reservation`, `sale_dispatch`, `reservation_release`, `customer_return`, `supplier_return`, `transfer_out`, `transfer_in`, `positive_adjustment`, `negative_adjustment`, `damaged`, `lost`, `initial_stock`.
 - `payment_method`: `cash`, `bank_transfer`, `card`, `digital_wallet`, `other`.
@@ -218,16 +219,23 @@ Pedido, pago y envío son estados independientes. Por ejemplo, un pedido `delive
 - **Auditoría:** campos estándar.
 - **Relaciones:** muchos pagos por pedido; trigger/función recalcula `orders.paid_amount`, saldo y estado agregado.
 
+### `carriers`
+
+- **Propósito:** catálogo privado de transportistas.
+- **Campos:** código y nombre, contacto opcional, plantilla HTTPS de seguimiento, notas, estado y auditoría.
+- **Restricciones:** código único normalizado; no se desactiva con envíos abiertos; sin DELETE para clientes.
+
 ### `shipments`
 
 - **Propósito:** uno o más envíos logísticos de un pedido.
-- **PK:** `id uuid`.
-- **Campos:** `order_id`, `shipment_number`, `status`, `carrier`, `tracking_number`, `recipient_name`, `shipping_address`, `shipping_cost`, `prepared_at`, `dispatched_at`, `delivered_at`, `failed_at`, `notes`.
-- **FK:** pedido; actores estándar y responsables de hitos → `profiles`.
-- **Restricciones:** número único; costo no negativo; secuencia temporal válida; tracking único por carrier cuando exista; dirección protegida; transiciones cerradas.
-- **Índices:** `order_id`, `(status, created_at desc)`, tracking parcial.
-- **Auditoría:** campos estándar e hitos.
-- **Relaciones:** muchos envíos por pedido; no cambia estado de pago; el despacho de stock se vincula al pedido y puede guardar shipment id en metadata/referencia futura.
+- **Campos:** número privado, pedido, transportista, estado, tracking, instantánea protegida de destinatario/dirección, costo PEN, hitos, versión y auditoría.
+- **Restricciones:** número único; tracking único por transportista; costo no negativo; transiciones cerradas e idempotentes. No modifica pedido, pago ni inventario.
+- **Índices:** pedido/estado, estado/fecha y tracking parcial.
+
+### `shipment_items` y `shipment_events`
+
+- **Líneas:** una FK compuesta exige que envío y línea pertenezcan al mismo pedido; la suma asignada no supera lo despachado menos lo devuelto.
+- **Eventos:** línea de tiempo append-only con tipo, fecha, ubicación, descripción, responsable y metadatos seguros. No admite UPDATE ni DELETE.
 
 ### `expenses`
 
@@ -265,7 +273,9 @@ Las cantidades usan `numeric(14,3)`, los costos `numeric(14,4)` y los importes `
 
 Transiciones implementadas: compra `draft → confirmed → partially_received/received` y cancelación solo sin recepciones; transferencia `draft → confirmed → in_transit → partially_received/received` y cancelación solo antes del despacho. `supplier_return` queda reservado como tipo sin RPC ni interfaz. No existen tipos ni operaciones de venta en la migración 004.
 
-La Etapa 3 está completada y validada con Supabase real. La Etapa 4 está implementada en código y su migración 005 está pendiente de aplicación remota. Añade `customers`, `orders`, `order_items` y `payments`; las líneas fijan `(balance_id, variant_id, warehouse_id, location_id)` y el libro mayor enlaza `(order_id, order_item_id)`. Los nuevos movimientos son `sale_reservation`, `reservation_release`, `sale_dispatch` y `customer_return`. Los totales, reservas, pagos acumulados y transiciones se calculan en PostgreSQL. Las pruebas SQL y de concurrencia real continúan pendientes. La Etapa 5 no ha sido iniciada.
+La Etapa 4 está completada y validada con Supabase real y su migración 005 está aplicada local y remotamente. La Etapa 5A añade `carriers`, `shipments`, `shipment_items` y `shipment_events`; una FK compuesta garantiza que cada línea pertenezca al pedido del envío y las cantidades agregadas no pueden superar lo despachado pendiente. Los eventos son append-only, los datos del destinatario quedan congelados en el envío y los estados logísticos permanecen separados de pedido, pago e inventario. La migración 006 está pendiente de aplicación remota y las pruebas SQL y de concurrencia real continúan pendientes.
+
+La Etapa 5A está implementada en código; su alcance se limita a envíos y seguimiento logístico.
 
 ## Relaciones principales
 

@@ -1,0 +1,10 @@
+import type { ShipmentEventType,ShipmentStatus } from "@/types/database";
+export const SHIPPING_PAGE_SIZE=20;
+export type Carrier={id:string;code:string;name:string;contactName:string|null;email:string|null;phone:string|null;trackingUrlTemplate:string|null;notes:string|null;isActive:boolean};
+export type ShipmentListItem={id:string;shipmentNumber:string;orderId:string;orderNumber:string;customerName:string;carrierName:string|null;status:ShipmentStatus;trackingNumber:string|null;shippingCost:number;createdAt:string};
+export type ShipmentItem={id:string;orderItemId:string;quantity:number;variantLabel:string;dispatchedQuantity:number;returnedQuantity:number};
+export type ShipmentEvent={id:string;eventType:ShipmentEventType;occurredAt:string;location:string|null;description:string|null};
+export type ShipmentDetail=ShipmentListItem&{recipientName:string;recipientPhone:string|null;addressLine:string;district:string|null;province:string|null;department:string|null;addressReference:string|null;notes:string|null;version:number;items:ShipmentItem[];events:ShipmentEvent[]};
+export type Option={id:string;label:string};
+export type ShippingFilters={page:number;query:string;status:string};
+export type PageResult<T>={items:T[];page:number;pageSize:number;total:number;pageCount:number};

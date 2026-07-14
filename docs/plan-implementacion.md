@@ -39,7 +39,7 @@ El proyecto avanza por etapas cerradas. Cada etapa empieza solo por solicitud ex
 
 ## Etapa 4 — Clientes, pedidos, pagos y reservas
 
-**Estado:** implementada en código. Migración 005 pendiente de revisión y aplicación remota. Incluye clientes, pedidos, reserva/liberación, despacho parcial/completo, devolución de cliente, pagos, reembolsos administrativos y conciliación financiera. Las pruebas SQL y de concurrencia real no se ejecutaron. La Etapa 5 no ha sido iniciada.
+**Estado:** completada y validada con Supabase real. La migración 005 está aplicada local y remotamente; se validaron clientes, pedidos, reservas, despachos, devoluciones, pagos y reembolsos con datos ficticios. Las pruebas reales de concurrencia con conexiones independientes continúan pendientes.
 
 - **Objetivo:** gestionar ventas sin mezclar estados comerciales, financieros y logísticos.
 - **Entregables:** clientes, pedidos/detalles, reserva/liberación/despacho, pagos, saldos, devoluciones y vistas móviles.
@@ -48,6 +48,8 @@ El proyecto avanza por etapas cerradas. Cada etapa empieza solo por solicitud ex
 - **Aceptación:** confirmación concurrente segura; estados independientes; pedido entregado puede conservar deuda; cancelaciones/devoluciones generan movimientos correctos.
 
 ## Etapa 5 — Envíos, gastos y dashboard
+
+**Estado:** iniciada únicamente en su subetapa 5A. Transportistas, envíos múltiples por pedido, líneas sobre cantidades despachadas, seguimiento inmutable y conciliación logística están implementados en código mediante la migración 006, pendiente de revisión y aplicación remota. Gastos, categorías de gasto y dashboard no han sido iniciados.
 
 - **Objetivo:** completar seguimiento operativo y visibilidad gerencial.
 - **Entregables:** envíos y eventos, gastos/categorías, indicadores y dashboard responsive con consultas agregadas autorizadas.

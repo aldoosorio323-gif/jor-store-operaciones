@@ -5,7 +5,8 @@ export type IconName =
   | "movements" | "transfers" | "purchases" | "suppliers" | "warehouses"
   | "adjustments" | "users" | "profile" | "menu" | "close" | "search"
   | "plus" | "arrow-left" | "chevron-left" | "chevron-right" | "logout"
-  | "box" | "info" | "check" | "warning" | "sun" | "moon" | "monitor" | "cream";
+  | "box" | "info" | "check" | "warning" | "sun" | "moon" | "monitor" | "cream"
+  | "shipments" | "carriers";
 
 const paths: Record<IconName, React.ReactNode> = {
   home: <><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v10h13V10M9 20v-6h6v6"/></>,
@@ -32,6 +33,8 @@ const paths: Record<IconName, React.ReactNode> = {
   moon: <path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.7 6.7 0 0 0 21 12.8Z"/>,
   monitor: <><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></>,
   cream: <><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h5"/></>,
+  shipments: <><path d="M3 6h11v11H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>,
+  carriers: <><path d="M3 7h12v10H3zM15 10h4l2 3v4h-6z"/><path d="M6 7V4h6v3"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/></>,
 };
 
 export function Icon({ name, ...props }: { name: IconName } & SVGProps<SVGSVGElement>) {

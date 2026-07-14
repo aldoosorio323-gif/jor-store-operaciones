@@ -1,0 +1,11 @@
+import { z } from "zod";
+const empty=(value:unknown)=>typeof value==="string"&&value.trim()===""?null:value;
+const optional=(max:number)=>z.preprocess(empty,z.string().trim().max(max).nullable());
+const uuid=z.string().uuid("Identificador inválido.");
+export const carrierSchema=z.object({code:z.string().trim().min(1,"Ingresa el código.").max(30).transform(v=>v.toUpperCase()),name:z.string().trim().min(2,"Ingresa el nombre.").max(120),contactName:optional(120),email:z.preprocess(empty,z.string().trim().toLowerCase().email("Correo inválido.").nullable()),phone:optional(40),trackingUrlTemplate:z.preprocess(empty,z.string().trim().url("URL inválida.").refine(v=>v.startsWith("https://")&&v.includes("{tracking}"),"Usa HTTPS e incluye {tracking}.").nullable()),notes:optional(500)}).strict();
+export const shipmentSchema=z.object({orderId:uuid,carrierId:z.preprocess(empty,uuid.nullable()),recipientName:z.string().trim().min(2,"Ingresa el destinatario.").max(160),recipientPhone:optional(40),addressLine:z.string().trim().min(3,"Ingresa la dirección.").max(240),district:optional(100),province:optional(100),department:optional(100),addressReference:optional(240),shippingCost:z.coerce.number().finite().min(0,"El costo no puede ser negativo."),trackingNumber:optional(120),notes:optional(500)}).strict();
+export const shipmentItemSchema=z.object({shipmentId:uuid,orderItemId:uuid,quantity:z.coerce.number().finite().positive("La cantidad debe ser mayor que cero.")}).strict();
+export const shipmentTransitionSchema=z.object({shipmentId:uuid,location:optional(160),description:optional(500),idempotencyKey:uuid}).strict();
+export const deliveryAttemptSchema=shipmentTransitionSchema.extend({delivered:z.boolean()}).strict();
+export const shippingIdSchema=uuid;
+export const shippingFiltersSchema=z.object({page:z.coerce.number().int().positive().default(1),query:z.string().trim().max(100).default(""),status:z.string().trim().max(40).default("all")}).strict();
