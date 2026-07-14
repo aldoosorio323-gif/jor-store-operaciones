@@ -8,6 +8,7 @@ import { loginAction } from "@/app/actions/auth";
 import type { z } from "zod";
 import { loginSchema } from "@/validations/auth";
 import { PasswordInput } from "@/components/auth/password-input";
+import { buttonStyles, fieldClass } from "@/components/ui/operational-ui";
 
 type LoginValues = z.infer<typeof loginSchema>;
 
@@ -58,7 +59,7 @@ export function LoginForm({
           autoComplete="email"
           inputMode="email"
           aria-invalid={Boolean(errors.email)}
-          className="mt-2 w-full rounded-xl border border-neutral-300 px-4 py-3 text-base outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+          className={`${fieldClass} text-base`}
         />
         {errors.email ? (
           <p className="mt-1 text-sm text-red-700">{errors.email.message}</p>
@@ -82,14 +83,14 @@ export function LoginForm({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white transition hover:bg-emerald-900 disabled:cursor-not-allowed disabled:opacity-60"
+        className={`${buttonStyles.primary} w-full`}
       >
         {pending ? "Iniciando sesión…" : "Iniciar sesión"}
       </button>
 
       <Link
         href="/forgot-password"
-        className="block text-center text-sm font-medium text-emerald-800 underline-offset-4 hover:underline"
+        className="block text-center text-sm font-semibold text-[var(--app-primary)] underline-offset-4 hover:underline"
       >
         Recuperar contraseña
       </Link>

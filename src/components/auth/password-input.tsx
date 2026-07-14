@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
+import { fieldClass } from "@/components/ui/operational-ui";
 
 type PasswordInputProps = {
   id: string;
@@ -33,12 +34,12 @@ export function PasswordInput({
           autoComplete={autoComplete}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}
-          className="w-full rounded-xl border border-neutral-300 px-4 py-3 pr-20 text-base outline-none transition focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+          className={`${fieldClass} mt-2 pr-20 text-base`}
         />
         <button
           type="button"
           onClick={() => setVisible((current) => !current)}
-          className="absolute inset-y-0 right-0 px-4 text-sm font-medium text-emerald-800"
+          className="absolute bottom-0 right-0 top-2 px-4 text-sm font-semibold text-[var(--app-primary)]"
           aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
         >
           {visible ? "Ocultar" : "Mostrar"}

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { forgotPasswordAction } from "@/app/actions/auth";
 import type { z } from "zod";
 import { forgotPasswordSchema } from "@/validations/auth";
+import { buttonStyles, fieldClass } from "@/components/ui/operational-ui";
 
 type ForgotValues = z.infer<typeof forgotPasswordSchema>;
 
@@ -38,7 +39,7 @@ export function ForgotPasswordForm({ initialMessage }: { initialMessage?: string
           id="email"
           type="email"
           autoComplete="email"
-          className="mt-2 w-full rounded-xl border border-neutral-300 px-4 py-3 text-base outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+          className={`${fieldClass} text-base`}
         />
         {formState.errors.email ? (
           <p className="mt-1 text-sm text-red-700">{formState.errors.email.message}</p>
@@ -52,11 +53,11 @@ export function ForgotPasswordForm({ initialMessage }: { initialMessage?: string
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white disabled:opacity-60"
+        className={`${buttonStyles.primary} w-full`}
       >
         {pending ? "Enviando…" : "Enviar instrucciones"}
       </button>
-      <Link href="/login" className="block text-center text-sm font-medium text-emerald-800">
+      <Link href="/login" className="block text-center text-sm font-semibold text-[var(--app-primary)]">
         Volver al inicio de sesión
       </Link>
     </form>

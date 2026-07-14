@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ThemeSelector } from "@/components/app/theme-selector";
 
 type AuthShellProps = {
   title: string;
@@ -8,16 +9,17 @@ type AuthShellProps = {
 
 export function AuthShell({ title, description, children }: AuthShellProps) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-emerald-950 px-4 py-10">
-      <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl shadow-black/20 sm:p-8">
+    <main className="app-shell relative flex min-h-screen items-center justify-center px-4 py-10">
+      <div className="absolute right-4 top-4 sm:right-6 sm:top-6"><ThemeSelector /></div>
+      <section className="app-surface w-full max-w-md rounded-3xl border p-6 shadow-2xl shadow-black/10 sm:p-8">
         <div className="mb-7">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
+          <p className="text-sm font-bold uppercase tracking-[0.2em] text-[var(--app-primary)]">
             JOR STORE
           </p>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-emerald-950">
+          <h1 className="app-text mt-3 text-3xl font-bold tracking-tight">
             {title}
           </h1>
-          <p className="mt-2 text-sm leading-6 text-neutral-600">{description}</p>
+          <p className="app-muted mt-2 text-sm leading-6">{description}</p>
         </div>
         {children}
       </section>

@@ -7,6 +7,7 @@ import type { z } from "zod";
 import { resetPasswordAction } from "@/app/actions/auth";
 import { PasswordInput } from "@/components/auth/password-input";
 import { resetPasswordSchema } from "@/validations/auth";
+import { buttonStyles } from "@/components/ui/operational-ui";
 
 type ResetValues = z.infer<typeof resetPasswordSchema>;
 
@@ -63,7 +64,7 @@ export function ResetPasswordForm() {
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white disabled:opacity-60"
+        className={`${buttonStyles.primary} w-full`}
       >
         {pending ? "Actualizando…" : "Actualizar contraseña"}
       </button>
