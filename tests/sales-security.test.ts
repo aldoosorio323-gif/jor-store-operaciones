@@ -19,12 +19,15 @@ describe("fronteras de ventas", () => {
     expect(body).not.toContain('.from("customers")');
   });
 
-  it("confirma operaciones destructivas y solicita los datos requeridos", () => {
-    expect(forms).toContain("¿Cancelar el pedido y liberar sus reservas?");
-    expect(forms).toContain("¿Registrar la devolución en la ubicación seleccionada?");
-    expect(forms).toContain("¿Registrar este reembolso sin modificar el pago original?");
-    expect(forms).toContain('aria-label="Ubicación de devolución"');
-    expect(forms).toContain("Descuento (máximo: subtotal)");
+  it("confirma operaciones sensibles y solicita sus datos en diálogos internos", () => {
+    expect(forms).toContain('title="Cancelar pedido"');
+    expect(forms).toContain('title="Registrar devolución"');
+    expect(forms).toContain('title="Registrar reembolso"');
+    expect(forms).toContain('label="Ubicación de devolución"');
+    expect(forms).toContain('label="Descuento"');
+    expect(forms).toContain("<ConfirmDialog");
+    expect(forms).toContain("<Modal");
+    expect(forms).not.toMatch(/\b(?:window\.)?(?:confirm|prompt)\s*\(/);
     expect(actions).toContain("El descuento no puede superar el subtotal de la línea.");
   });
 

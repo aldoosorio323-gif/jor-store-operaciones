@@ -3,6 +3,9 @@
 import { useRef, useState, useTransition } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import type { z } from "zod";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { buttonStyles, fieldClass } from "@/components/ui/operational-ui";
 import type { ActionResult } from "@/app/actions/auth";
 import {
   adjustInventoryAction,
@@ -40,9 +43,9 @@ import {
   transferSchema,
 } from "@/validations/inventory";
 
-const inputClass = "mt-2 w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
-const primaryClass = "rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60";
-const secondaryClass = "rounded-xl border border-neutral-300 bg-white px-4 py-3 font-semibold text-neutral-800 disabled:opacity-60";
+const inputClass = fieldClass;
+const primaryClass = buttonStyles.primary;
+const secondaryClass = buttonStyles.secondary;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <label className="text-sm font-medium text-neutral-700">{label}{children}</label>;
@@ -134,23 +137,18 @@ export function PurchaseItemForm({ purchaseId, variants, item, nextLine }: {
 
 export function RemovePurchaseItemButton({ id }: { id: string }) {
   const state = useMutationResult();
-  return <div><button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-    if (!window.confirm("¿Confirmas que deseas retirar esta línea del borrador?")) return;
-    state.run(() => removePurchaseItemAction(id));
-  }}>{state.pending ? "Retirando…" : "Retirar línea"}</button><Message result={state.result} /></div>;
+  const [open, setOpen] = useState(false);
+  return <div><button type="button" disabled={state.pending} className={secondaryClass} onClick={() => setOpen(true)}>{state.pending ? "Retirando…" : "Retirar línea"}</button><ConfirmDialog open={open} onOpenChange={setOpen} title="Retirar línea" description="La línea se eliminará del borrador de compra. Los totales serán recalculados por el servidor." confirmLabel="Retirar línea" danger pending={state.pending} onConfirm={() => { setOpen(false); state.run(() => removePurchaseItemAction(id)); }}/><Message result={state.result} /></div>;
 }
 
 export function PurchaseActions({ id, canConfirm, canCancel }: { id: string; canConfirm: boolean; canCancel: boolean }) {
   const state = useMutationResult();
+  const [dialog, setDialog] = useState<"confirm" | "cancel" | null>(null);
   return <div className="flex flex-wrap gap-3">
-    {canConfirm ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => {
-      if (!window.confirm("¿Confirmas la compra? La cabecera y sus líneas quedarán congeladas.")) return;
-      state.run(() => confirmPurchaseAction(id));
-    }}>Confirmar compra</button> : null}
-    {canCancel ? <button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-      if (!window.confirm("¿Confirmas la cancelación? Solo es posible antes de recibir stock.")) return;
-      state.run(() => cancelPurchaseAction(id));
-    }}>Cancelar compra</button> : null}
+    {canConfirm ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => setDialog("confirm")}>Confirmar compra</button> : null}
+    {canCancel ? <button type="button" disabled={state.pending} className={buttonStyles.danger} onClick={() => setDialog("cancel")}>Cancelar compra</button> : null}
+    <ConfirmDialog open={dialog === "confirm"} onOpenChange={(open) => setDialog(open ? "confirm" : null)} title="Confirmar compra" description="La cabecera y las líneas quedarán congeladas. Luego podrás registrar recepciones parciales o completas." confirmLabel="Confirmar compra" pending={state.pending} onConfirm={() => { setDialog(null); state.run(() => confirmPurchaseAction(id)); }}/>
+    <ConfirmDialog open={dialog === "cancel"} onOpenChange={(open) => setDialog(open ? "cancel" : null)} title="Cancelar compra" description="La compra quedará cancelada. Esta operación solo es válida antes de recibir stock." confirmLabel="Cancelar compra" danger pending={state.pending} onConfirm={() => { setDialog(null); state.run(() => cancelPurchaseAction(id)); }}/>
     <div className="basis-full"><Message result={state.result} /></div>
   </div>;
 }
@@ -158,17 +156,18 @@ export function PurchaseActions({ id, canConfirm, canCancel }: { id: string; can
 export function PurchaseReceiptForm({ item, locations }: { item: PurchaseItem; locations: LocationOption[] }) {
   const state = useMutationResult();
   const idempotency = useIdempotencyKey();
+  const [payload, setPayload] = useState<z.output<typeof purchaseReceiptSchema> | null>(null);
   const pendingQuantity = item.orderedQuantity - item.receivedQuantity;
   const { register, handleSubmit } = useForm<{ locationId: string; quantity: number }>({ defaultValues: { locationId: "", quantity: pendingQuantity } });
   return <form className="grid gap-3 sm:grid-cols-[1fr_10rem_auto]" onSubmit={handleSubmit((values) => {
     const parsed = purchaseReceiptSchema.safeParse({ ...values, purchaseItemId: item.id, idempotencyKey: idempotency.get() });
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
-    if (!window.confirm(`¿Registrar la recepción de ${parsed.data.quantity} unidades?`)) return;
-    state.run(() => receivePurchaseItemAction(parsed.data), idempotency.rotate);
+    setPayload(parsed.data);
   })}>
     <Field label="Ubicación de recepción"><select {...register("locationId")} required className={inputClass}><option value="">Selecciona almacén y ubicación</option>{locations.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</select></Field>
     <Field label="Cantidad"><input {...register("quantity", { valueAsNumber: true })} type="number" min="0.001" max={pendingQuantity} step="0.001" required className={inputClass} /></Field>
     <button disabled={state.pending} className={`${primaryClass} self-end`}>{state.pending ? "Recibiendo…" : "Recibir"}</button>
+    <ConfirmDialog open={payload !== null} onOpenChange={(open) => { if (!open) setPayload(null); }} title="Registrar recepción" description={`Se incorporarán ${payload?.quantity ?? 0} unidades al inventario en la ubicación seleccionada.`} confirmLabel="Registrar recepción" pending={state.pending} onConfirm={() => { if (!payload) return; const next = payload; setPayload(null); state.run(() => receivePurchaseItemAction(next), idempotency.rotate); }}/>
     <div className="sm:col-span-3"><Message result={state.result} /></div>
   </form>;
 }
@@ -226,28 +225,21 @@ export function TransferItemForm({ transfer, variants, locations, item, nextLine
 
 export function RemoveTransferItemButton({ id }: { id: string }) {
   const state = useMutationResult();
-  return <div><button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-    if (!window.confirm("¿Confirmas que deseas retirar esta línea del borrador?")) return;
-    state.run(() => removeTransferItemAction(id));
-  }}>{state.pending ? "Retirando…" : "Retirar línea"}</button><Message result={state.result} /></div>;
+  const [open, setOpen] = useState(false);
+  return <div><button type="button" disabled={state.pending} className={secondaryClass} onClick={() => setOpen(true)}>{state.pending ? "Retirando…" : "Retirar línea"}</button><ConfirmDialog open={open} onOpenChange={setOpen} title="Retirar línea" description="La línea se eliminará del borrador de transferencia." confirmLabel="Retirar línea" danger pending={state.pending} onConfirm={() => { setOpen(false); state.run(() => removeTransferItemAction(id)); }}/><Message result={state.result} /></div>;
 }
 
 export function TransferActions({ transfer }: { transfer: TransferDetail }) {
   const state = useMutationResult();
   const idempotency = useIdempotencyKey();
+  const [dialog, setDialog] = useState<"confirm" | "dispatch" | "cancel" | null>(null);
   return <div className="flex flex-wrap gap-3">
-    {transfer.status === "draft" ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => {
-      if (!window.confirm("¿Confirmas la transferencia? La cabecera y sus líneas quedarán congeladas.")) return;
-      state.run(() => confirmTransferAction(transfer.id));
-    }}>Confirmar</button> : null}
-    {transfer.status === "confirmed" ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => {
-      if (!window.confirm("¿Despachar todas las líneas? El stock saldrá del origen y quedará en tránsito.")) return;
-      state.run(() => dispatchTransferAction(transfer.id, idempotency.get()), idempotency.rotate);
-    }}>Despachar</button> : null}
-    {["draft", "confirmed"].includes(transfer.status) ? <button type="button" disabled={state.pending} className={secondaryClass} onClick={() => {
-      if (!window.confirm("¿Confirmas la cancelación de la transferencia?")) return;
-      state.run(() => cancelTransferAction(transfer.id));
-    }}>Cancelar</button> : null}
+    {transfer.status === "draft" ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => setDialog("confirm")}>Confirmar</button> : null}
+    {transfer.status === "confirmed" ? <button type="button" disabled={state.pending} className={primaryClass} onClick={() => setDialog("dispatch")}>Despachar</button> : null}
+    {["draft", "confirmed"].includes(transfer.status) ? <button type="button" disabled={state.pending} className={buttonStyles.danger} onClick={() => setDialog("cancel")}>Cancelar</button> : null}
+    <ConfirmDialog open={dialog === "confirm"} onOpenChange={(open)=>setDialog(open ? "confirm" : null)} title="Confirmar transferencia" description="La cabecera y las líneas quedarán congeladas antes del despacho." confirmLabel="Confirmar" pending={state.pending} onConfirm={()=>{setDialog(null);state.run(()=>confirmTransferAction(transfer.id));}}/>
+    <ConfirmDialog open={dialog === "dispatch"} onOpenChange={(open)=>setDialog(open ? "dispatch" : null)} title="Despachar transferencia" description="El stock saldrá del almacén de origen y permanecerá en tránsito hasta registrar la recepción." confirmLabel="Despachar" pending={state.pending} onConfirm={()=>{setDialog(null);state.run(()=>dispatchTransferAction(transfer.id,idempotency.get()),idempotency.rotate);}}/>
+    <ConfirmDialog open={dialog === "cancel"} onOpenChange={(open)=>setDialog(open ? "cancel" : null)} title="Cancelar transferencia" description="La transferencia quedará cancelada y no podrá despacharse." confirmLabel="Cancelar transferencia" danger pending={state.pending} onConfirm={()=>{setDialog(null);state.run(()=>cancelTransferAction(transfer.id));}}/>
     <div className="basis-full"><Message result={state.result} /></div>
   </div>;
 }
@@ -256,15 +248,16 @@ export function TransferReceiptForm({ item }: { item: TransferItem }) {
   const state = useMutationResult();
   const idempotency = useIdempotencyKey();
   const pendingQuantity = item.dispatchedQuantity - item.receivedQuantity;
+  const [payload, setPayload] = useState<z.output<typeof transferReceiptSchema> | null>(null);
   const { register, handleSubmit } = useForm<{ quantity: number }>({ defaultValues: { quantity: pendingQuantity } });
   return <form className="flex flex-wrap items-end gap-3" onSubmit={handleSubmit((values) => {
     const parsed = transferReceiptSchema.safeParse({ ...values, transferItemId: item.id, idempotencyKey: idempotency.get() });
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
-    if (!window.confirm(`¿Registrar la recepción de ${parsed.data.quantity} unidades en destino?`)) return;
-    state.run(() => receiveTransferItemAction(parsed.data), idempotency.rotate);
+    setPayload(parsed.data);
   })}>
     <Field label="Cantidad a recibir"><input {...register("quantity", { valueAsNumber: true })} type="number" min="0.001" max={pendingQuantity} step="0.001" className={inputClass} /></Field>
     <button disabled={state.pending} className={primaryClass}>{state.pending ? "Recibiendo…" : "Recibir"}</button>
+    <ConfirmDialog open={payload !== null} onOpenChange={(open)=>{if(!open)setPayload(null);}} title="Recibir transferencia" description={`Se registrarán ${payload?.quantity ?? 0} unidades en el almacén de destino.`} confirmLabel="Registrar recepción" pending={state.pending} onConfirm={()=>{if(!payload)return;const next=payload;setPayload(null);state.run(()=>receiveTransferItemAction(next),idempotency.rotate);}}/>
     <div className="basis-full"><Message result={state.result} /></div>
   </form>;
 }
@@ -282,11 +275,11 @@ export function InventoryAdjustmentForm({ selectedVariant, selectedLocation, bal
   } });
   const movementType = useWatch({ control, name: "movementType" });
   const needsCost = ["initial_stock", "positive_adjustment"].includes(movementType);
+  const [payload, setPayload] = useState<z.output<typeof inventoryAdjustmentSchema> | null>(null);
   return <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleSubmit((values) => {
     const parsed = inventoryAdjustmentSchema.safeParse({ ...values, unitCost: needsCost ? values.unitCost : null, idempotencyKey: idempotency.get() });
     if (!parsed.success) return state.setResult({ ok: false, message: parsed.error.issues[0]?.message ?? "Revisa los datos." });
-    if (!window.confirm(`¿Confirmas el ajuste sobre el saldo físico actual ${balance?.physicalStock ?? 0}?`)) return;
-    state.run(() => adjustInventoryAction(parsed.data), idempotency.rotate);
+    setPayload(parsed.data);
   })}>
     <input type="hidden" {...register("variantId")} />
     <input type="hidden" {...register("locationId")} />
@@ -299,5 +292,6 @@ export function InventoryAdjustmentForm({ selectedVariant, selectedLocation, bal
     <label className="text-sm font-medium text-neutral-700 sm:col-span-2">Razón<textarea {...register("reason")} rows={3} required className={inputClass} /></label>
     <div className="sm:col-span-2"><Message result={state.result} /></div>
     <button disabled={state.pending} className={`${primaryClass} sm:col-span-2`}>{state.pending ? "Registrando…" : "Registrar ajuste"}</button>
+    <ConfirmDialog open={payload !== null} onOpenChange={(open)=>{if(!open)setPayload(null);}} title="Confirmar ajuste de inventario" description={`El movimiento se registrará sobre el saldo físico actual de ${balance?.physicalStock ?? 0}. El libro mayor no podrá editarse después.`} confirmLabel="Registrar ajuste" danger={Boolean(payload && ["negative_adjustment","damaged","lost"].includes(payload.movementType))} pending={state.pending} onConfirm={()=>{if(!payload)return;const next=payload;setPayload(null);state.run(()=>adjustInventoryAction(next),idempotency.rotate);}}/>
   </form>;
 }

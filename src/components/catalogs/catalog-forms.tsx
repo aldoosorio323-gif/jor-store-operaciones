@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { buttonStyles, fieldClass } from "@/components/ui/operational-ui";
 import type { z } from "zod";
 import type { ActionResult } from "@/app/actions/auth";
 import {
@@ -32,8 +34,8 @@ import {
   warehouseSchema,
 } from "@/validations/catalogs";
 
-const inputClass = "mt-2 w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 font-normal outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100";
-const buttonClass = "rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60";
+const inputClass = fieldClass;
+const buttonClass = buttonStyles.primary;
 
 function Message({ value, ok }: { value: string; ok: boolean }) {
   return value ? (
@@ -261,6 +263,7 @@ type StatusEntity = "product" | "variant" | "warehouse" | "location" | "supplier
 
 export function CatalogStatusButton({ id, isActive, entity }: { id: string; isActive: boolean; entity: StatusEntity }) {
   const state = useResult();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const action = {
     product: setProductStatusAction,
     variant: setVariantStatusAction,
@@ -270,12 +273,10 @@ export function CatalogStatusButton({ id, isActive, entity }: { id: string; isAc
   }[entity];
   return (
     <div className="space-y-2">
-      <button type="button" disabled={state.pending} onClick={() => {
-        if (isActive && !window.confirm("¿Confirmas que deseas desactivar este registro?")) return;
-        state.run(() => action({ id, isActive: !isActive }));
-      }} className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-800 disabled:opacity-60">
+      <button type="button" disabled={state.pending} onClick={() => setConfirmOpen(true)} className={isActive ? buttonStyles.danger : buttonStyles.secondary}>
         {state.pending ? "Procesando…" : isActive ? "Desactivar" : "Activar"}
       </button>
+      <ConfirmDialog open={confirmOpen} onOpenChange={setConfirmOpen} title={isActive ? "Desactivar registro" : "Activar registro"} description={isActive ? "El registro dejará de estar disponible para la operación. Esta acción puede ser rechazada si existen relaciones activas." : "El registro volverá a estar disponible según los permisos vigentes."} confirmLabel={isActive ? "Sí, desactivar" : "Activar"} danger={isActive} pending={state.pending} onConfirm={() => { setConfirmOpen(false); state.run(() => action({ id, isActive: !isActive })); }} />
       <Message value={state.result.message} ok={state.result.ok} />
     </div>
   );

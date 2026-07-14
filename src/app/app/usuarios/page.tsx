@@ -2,6 +2,7 @@ import { EnvironmentConfigurationError } from "@/lib/env";
 import { requireAdministrator } from "@/lib/auth/session";
 import { UserManagement } from "@/components/users/user-management";
 import { listUsersForAdministrator } from "@/services/user-admin";
+import { Feedback, PageHeader } from "@/components/ui/operational-ui";
 
 export default async function UsersPage() {
   const administrator = await requireAdministrator();
@@ -21,20 +22,14 @@ export default async function UsersPage() {
         : "No fue posible cargar la administración de usuarios.";
 
     return (
-      <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6">
-        <h1 className="text-2xl font-semibold text-amber-950">Configuración pendiente</h1>
-        <p className="mt-2 text-amber-900">{message}</p>
-      </section>
+      <Feedback tone="warning"><strong>Configuración pendiente.</strong> {message}</Feedback>
     );
   }
 
   return (
     <section>
-      <h1 className="text-3xl font-semibold text-emerald-950">Administrar usuarios</h1>
-      <p className="mt-2 text-neutral-600">
-        Invitaciones, roles y activación con control exclusivo del servidor.
-      </p>
-      <div className="mt-7">
+      <PageHeader title="Usuarios" description="Invitaciones, roles y activación con autorización exclusiva del servidor." />
+      <div>
         <UserManagement users={users} currentUserId={administrator.id} />
       </div>
     </section>

@@ -1,34 +1,16 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { EmptyState, Feedback, SkeletonPage, StatusBadge, buttonStyles } from "@/components/ui/operational-ui";
 
 export function OperationalStatusBadge({ label }: { label: string }) {
-  return <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-950">{label}</span>;
+  const normalized = label.toLowerCase();
+  const tone = normalized.includes("cancel") || normalized.includes("perdid") ? "danger" : normalized.includes("pendiente") || normalized.includes("parcial") || normalized.includes("tránsito") ? "warning" : normalized.includes("borrador") ? "neutral" : "success";
+  return <StatusBadge label={label} tone={tone}/>;
 }
-
-export function OperationalEmpty({ children }: { children: ReactNode }) {
-  return <p className="mt-6 rounded-2xl border border-dashed border-neutral-300 bg-white p-8 text-center text-neutral-600">{children}</p>;
+export function OperationalEmpty({ children, title, action }: { children?: ReactNode; title?: string; action?: ReactNode }) { return <EmptyState title={title} description={typeof children === "string" ? children : undefined} action={action}>{children}</EmptyState>; }
+export function OperationalPagination({ basePath, page, pageCount, params }: { basePath: string; page: number; pageCount: number; params: Record<string, string | boolean> }) {
+  if (pageCount <= 1) return null; const href=(target:number)=>{const search=new URLSearchParams({page:String(target)});for(const [key,value] of Object.entries(params))if(value)search.set(key,String(value));return `${basePath}?${search}`;};
+  return <nav aria-label="Paginación" className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm"><span className="text-sm text-slate-500">Página <strong className="text-slate-800">{page}</strong> de {pageCount}</span><div className="flex gap-2">{page>1?<Link href={href(page-1)} className={buttonStyles.secondary}>Anterior</Link>:null}{page<pageCount?<Link href={href(page+1)} className={buttonStyles.secondary}>Siguiente</Link>:null}</div></nav>;
 }
-
-export function OperationalPagination({ basePath, page, pageCount, params }: {
-  basePath: string; page: number; pageCount: number; params: Record<string, string | boolean>;
-}) {
-  if (pageCount <= 1) return null;
-  const href = (target: number) => {
-    const search = new URLSearchParams({ page: String(target) });
-    for (const [key, value] of Object.entries(params)) if (value) search.set(key, String(value));
-    return `${basePath}?${search}`;
-  };
-  return <nav aria-label="Paginación" className="mt-6 flex items-center justify-between gap-4">
-    {page > 1 ? <Link href={href(page - 1)} className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold">Anterior</Link> : <span />}
-    <span className="text-sm text-neutral-600">Página {page} de {pageCount}</span>
-    {page < pageCount ? <Link href={href(page + 1)} className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-semibold">Siguiente</Link> : <span />}
-  </nav>;
-}
-
-export function OperationalError({ title }: { title: string }) {
-  return <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><h1 className="text-2xl font-semibold text-amber-950">{title}</h1><p className="mt-2 text-amber-900">No fue posible cargar la información. Verifica que la migración 004 esté aplicada en el entorno consultado.</p></section>;
-}
-
-export function OperationalLoading() {
-  return <div aria-busy="true" className="space-y-4"><div className="h-9 w-52 animate-pulse rounded bg-neutral-200" /><div className="h-24 animate-pulse rounded-2xl bg-neutral-200" /><div className="h-40 animate-pulse rounded-2xl bg-neutral-200" /></div>;
-}
+export function OperationalError({ title }: { title: string }) { return <Feedback tone="warning"><strong>{title}.</strong> No fue posible cargar la información solicitada. Inténtalo nuevamente o contacta al administrador.</Feedback>; }
+export function OperationalLoading() { return <SkeletonPage/>; }

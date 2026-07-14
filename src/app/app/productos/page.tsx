@@ -1,41 +1,14 @@
 import Link from "next/link";
-import { CatalogFiltersForm, EmptyState, Pagination, StatusBadge } from "@/components/catalogs/catalog-ui";
+import { CatalogFiltersForm, Pagination, StatusBadge } from "@/components/catalogs/catalog-ui";
 import { parseCatalogFilters } from "@/features/catalogs/filters";
 import { canManageCatalogs } from "@/features/catalogs/permissions";
 import { requireActiveUser } from "@/lib/auth/session";
 import { listProducts } from "@/services/catalogs";
+import { EmptyState, Feedback, PageHeader, ResponsiveList, buttonStyles, tableCellClass, tableClass, tableHeadClass, tableRowClass } from "@/components/ui/operational-ui";
+import { Icon } from "@/components/ui/icons";
 
-export default async function ProductsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const user = await requireActiveUser();
-  const isAdministrator = canManageCatalogs(user.role);
-  const filters = parseCatalogFilters(await searchParams);
-  let result;
-  try { result = await listProducts(filters, isAdministrator); }
-  catch {
-    return <ErrorState title="Productos" />;
-  }
-  return (
-    <section>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div><h1 className="text-3xl font-semibold text-emerald-950">Productos</h1><p className="mt-2 text-neutral-600">Productos comerciales y sus variantes vendibles.</p></div>
-        {isAdministrator ? <Link href="/app/productos/nuevo" className="rounded-xl bg-emerald-800 px-5 py-3 font-semibold text-white">Crear producto</Link> : null}
-      </div>
-      <CatalogFiltersForm basePath="/app/productos" filters={filters} isAdministrator={isAdministrator} placeholder="Nombre, SKU, marca, categoría o color" />
-      {result.items.length ? (
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
-          {result.items.map((product) => (
-            <Link key={product.id} href={`/app/productos/${product.id}`} className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-emerald-300">
-              <div className="flex items-start justify-between gap-3"><h2 className="font-semibold text-neutral-950">{product.name}</h2><StatusBadge active={product.isActive} /></div>
-              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-neutral-500">Marca</dt><dd>{product.brand ?? "—"}</dd></div><div><dt className="text-neutral-500">Categoría</dt><dd>{product.category ?? "—"}</dd></div><div><dt className="text-neutral-500">Unidad</dt><dd>{product.unitCode}</dd></div></dl>
-            </Link>
-          ))}
-        </div>
-      ) : <EmptyState>No se encontraron productos con estos filtros.</EmptyState>}
-      <Pagination basePath="/app/productos" page={result.page} pageCount={result.pageCount} query={filters.query} status={filters.status} />
-    </section>
-  );
-}
-
-function ErrorState({ title }: { title: string }) {
-  return <section className="rounded-2xl border border-amber-300 bg-amber-50 p-6"><h1 className="text-2xl font-semibold text-amber-950">{title}</h1><p className="mt-2 text-amber-900">No fue posible cargar el catálogo. Verifica que la migración 003 esté aplicada en el entorno consultado.</p></section>;
+export default async function ProductsPage({ searchParams }: { searchParams: Promise<Record<string,string|string[]|undefined>> }) {
+  const user=await requireActiveUser();const isAdministrator=canManageCatalogs(user.role);const filters=parseCatalogFilters(await searchParams);let result;try{result=await listProducts(filters,isAdministrator);}catch{return <Feedback tone="warning"><strong>Productos.</strong> No fue posible cargar la información solicitada.</Feedback>;}
+  const action=isAdministrator?<Link href="/app/productos/nuevo" className={buttonStyles.primary}><Icon name="plus" className="size-4"/>Crear producto</Link>:undefined;
+  return <section><PageHeader title="Productos" description="Productos comerciales, variantes vendibles, SKU y precios." action={action}/><CatalogFiltersForm basePath="/app/productos" filters={filters} isAdministrator={isAdministrator} placeholder="Nombre, SKU, marca, categoría o color"/>{result.items.length?<ResponsiveList table={<table className={tableClass}><thead className={tableHeadClass}><tr><th className={tableCellClass}>Producto</th><th className={tableCellClass}>Marca</th><th className={tableCellClass}>Categoría</th><th className={tableCellClass}>Unidad</th><th className={tableCellClass}>Estado</th><th className={`${tableCellClass} text-right`}>Acción</th></tr></thead><tbody>{result.items.map((item)=><tr key={item.id} className={tableRowClass}><td className={`${tableCellClass} font-semibold text-slate-950`}>{item.name}</td><td className={tableCellClass}>{item.brand??"—"}</td><td className={tableCellClass}>{item.category??"—"}</td><td className={tableCellClass}>{item.unitCode}</td><td className={tableCellClass}><StatusBadge active={item.isActive}/></td><td className={`${tableCellClass} text-right`}><Link href={`/app/productos/${item.id}`} className="font-semibold text-emerald-700">Ver detalle</Link></td></tr>)}</tbody></table>} cards={result.items.map((item)=><Link key={item.id} href={`/app/productos/${item.id}`} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"><div className="flex justify-between gap-3"><h2 className="font-semibold text-slate-950">{item.name}</h2><StatusBadge active={item.isActive}/></div><dl className="mt-3 grid grid-cols-2 gap-2 text-sm"><div><dt className="text-xs text-slate-500">Marca</dt><dd>{item.brand??"—"}</dd></div><div><dt className="text-xs text-slate-500">Categoría</dt><dd>{item.category??"—"}</dd></div></dl></Link>)}/>:<EmptyState title="No hay productos" description="No se encontraron productos con los filtros seleccionados." action={action} icon="products"/>}<Pagination basePath="/app/productos" page={result.page} pageCount={result.pageCount} query={filters.query} status={filters.status}/></section>;
 }

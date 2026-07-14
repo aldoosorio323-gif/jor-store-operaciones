@@ -27,9 +27,9 @@ describe("integridad de mutaciones de catálogos", () => {
   });
 
   it("mantiene confirmación explícita antes de desactivar", () => {
-    expect(forms).toContain(
-      'if (isActive && !window.confirm("¿Confirmas que deseas desactivar este registro?")) return;',
-    );
+    expect(forms).toContain("<ConfirmDialog");
+    expect(forms).toContain('title={isActive ? "Desactivar registro" : "Activar registro"}');
+    expect(forms).not.toContain("window.confirm");
     expect(forms).toContain("CatalogStatusButton");
   });
 

@@ -11,6 +11,8 @@ import {
 } from "@/app/actions/users";
 import type { AdminUserListItem } from "@/services/user-admin";
 import { inviteUserSchema } from "@/validations/auth";
+import { ConfirmDialog } from "@/components/ui/dialog";
+import { Feedback, SectionCard, StatusBadge, buttonStyles, fieldClass } from "@/components/ui/operational-ui";
 
 type InviteValues = z.infer<typeof inviteUserSchema>;
 
@@ -30,11 +32,7 @@ export function UserManagement({
 
   return (
     <div className="space-y-8">
-      <section className="rounded-2xl border border-neutral-200 bg-white p-5 sm:p-6">
-        <h2 className="text-xl font-semibold text-emerald-950">Invitar usuario</h2>
-        <p className="mt-1 text-sm text-neutral-600">
-          Supabase enviará un enlace para que la persona defina su contraseña.
-        </p>
+      <SectionCard title="Invitar usuario" description="Se enviará un enlace seguro para que la persona defina su contraseña.">
         <form
           className="mt-5 grid gap-4 sm:grid-cols-2"
           onSubmit={handleSubmit((values) => {
@@ -53,7 +51,7 @@ export function UserManagement({
             Nombre
             <input
               {...register("displayName", { required: "Ingresa un nombre." })}
-              className="mt-2 w-full rounded-xl border border-neutral-300 px-4 py-3 font-normal"
+              className={fieldClass}
             />
             {formState.errors.displayName ? (
               <span className="mt-1 block text-red-700">{formState.errors.displayName.message}</span>
@@ -65,14 +63,14 @@ export function UserManagement({
               {...register("email", { required: "Ingresa un correo." })}
               type="email"
               autoComplete="off"
-              className="mt-2 w-full rounded-xl border border-neutral-300 px-4 py-3 font-normal"
+              className={fieldClass}
             />
           </label>
           <label className="text-sm font-medium text-neutral-800">
             Rol
             <select
               {...register("role")}
-              className="mt-2 w-full rounded-xl border border-neutral-300 px-4 py-3 font-normal"
+              className={fieldClass}
             >
               <option value="operator">Operador</option>
               <option value="administrator">Administrador</option>
@@ -82,22 +80,20 @@ export function UserManagement({
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-xl bg-emerald-800 px-4 py-3 font-semibold text-white disabled:opacity-60"
+              className={`${buttonStyles.primary} w-full`}
             >
               {pending ? "Procesando…" : "Enviar invitación"}
             </button>
           </div>
         </form>
         {message ? (
-          <p aria-live="polite" className="mt-4 rounded-xl bg-neutral-100 px-4 py-3 text-sm">
-            {message}
-          </p>
+          <Feedback className="mt-4">{message}</Feedback>
         ) : null}
-      </section>
+      </SectionCard>
 
       <section>
-        <h2 className="text-xl font-semibold text-emerald-950">Usuarios</h2>
-        <div className="mt-4 space-y-4">
+        <div className="mb-3 flex items-center justify-between"><h2 className="text-lg font-semibold text-slate-950">Usuarios registrados</h2><StatusBadge label={`${users.length} usuarios`} tone="neutral"/></div>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           {users.map((user) => (
             <UserAccessCard
               key={user.id}
@@ -132,9 +128,14 @@ function UserAccessCard({
 }) {
   const [role, setRole] = useState(user.role);
   const [isActive, setIsActive] = useState(user.isActive);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const save = () => run(async () => {
+    const result = await updateUserAccessAction({ profileId: user.id, displayName: user.displayName, role, isActive });
+    onResult(result);
+  });
 
   return (
-    <article className="rounded-2xl border border-neutral-200 bg-white p-5">
+    <article className="border-b border-slate-100 p-4 last:border-0 sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <p className="font-semibold text-neutral-900">
@@ -150,7 +151,7 @@ function UserAccessCard({
               onChange={(event) =>
                 setRole(event.target.value as "administrator" | "operator")
               }
-              className="mt-1 w-full rounded-xl border border-neutral-300 px-3 py-2"
+              className={fieldClass}
             >
               <option value="operator">Operador</option>
               <option value="administrator">Administrador</option>
@@ -167,21 +168,12 @@ function UserAccessCard({
           <button
             type="button"
             disabled={disabled}
-            onClick={() =>
-              run(async () => {
-                const result = await updateUserAccessAction({
-                  profileId: user.id,
-                  displayName: user.displayName,
-                  role,
-                  isActive,
-                });
-                onResult(result);
-              })
-            }
-            className="rounded-xl border border-emerald-800 px-4 py-2 text-sm font-semibold text-emerald-900 disabled:opacity-60"
+            onClick={() => { if (user.isActive && !isActive) setConfirmOpen(true); else save(); }}
+            className={buttonStyles.secondary}
           >
             Guardar
           </button>
+          <ConfirmDialog open={confirmOpen} onOpenChange={setConfirmOpen} title="Desactivar usuario" description="La persona perderá acceso a la aplicación. La cuenta y su historial auditado se conservarán." confirmLabel="Desactivar usuario" danger pending={disabled} onConfirm={()=>{setConfirmOpen(false);save();}} />
         </div>
       </div>
       {isCurrentUser && user.role === "administrator" ? (

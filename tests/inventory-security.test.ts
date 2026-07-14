@@ -43,12 +43,13 @@ describe("fronteras de seguridad de Etapa 3", () => {
     expect(actions).toContain("error || !data");
   });
 
-  it("no ofrece edición directa de stock y confirma acciones sensibles", () => {
+  it("no ofrece edición directa de stock y usa diálogos internos para acciones sensibles", () => {
     expect(forms).not.toContain('register("physicalStock")');
     expect(forms).not.toContain('register("reservedStock")');
     expect(forms).not.toContain('register("availableStock")');
     expect(forms).toContain("El saldo final no es editable");
-    expect(forms.match(/window\.confirm/g)?.length).toBeGreaterThanOrEqual(8);
+    expect(forms.match(/<ConfirmDialog/g)?.length).toBeGreaterThanOrEqual(8);
+    expect(forms).not.toContain("window.confirm");
     expect(forms).toContain("useIdempotencyKey");
     expect(forms).toContain("crypto.randomUUID()");
   });

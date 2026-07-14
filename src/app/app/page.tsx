@@ -1,24 +1,7 @@
+import Link from "next/link";
 import { requireActiveUser } from "@/lib/auth/session";
+import { getPrivateNavigationGroups } from "@/features/catalogs/permissions";
+import { Icon } from "@/components/ui/icons";
+import { PageHeader } from "@/components/ui/operational-ui";
 
-export default async function PrivateHomePage() {
-  const user = await requireActiveUser();
-
-  return (
-    <section className="rounded-3xl border border-emerald-950/10 bg-white p-6 shadow-sm sm:p-10">
-      <p className="text-sm font-semibold uppercase tracking-[0.16em] text-emerald-700">
-        Etapa 4
-      </p>
-      <h1 className="mt-3 text-3xl font-semibold text-emerald-950">
-        Hola, {user.displayName}
-      </h1>
-      <p className="mt-4 max-w-2xl leading-7 text-neutral-600">
-        Compras, inventario, clientes, pedidos, reservas y pagos comparten una
-        operación autorizada y respaldada por transacciones PostgreSQL.
-      </p>
-      <div className="mt-7 rounded-2xl bg-amber-100 p-4 text-sm leading-6 text-amber-950">
-        Esta pantalla es un punto de acceso y no un dashboard. Consulta cada
-        módulo desde la navegación principal; la Etapa 5 no ha sido iniciada.
-      </div>
-    </section>
-  );
-}
+export default async function PrivateHomePage(){const user=await requireActiveUser();const groups=getPrivateNavigationGroups(user.role).filter((group)=>!["Principal","Cuenta"].includes(group.label));return <section><PageHeader eyebrow="Centro de operaciones" title={`Hola, ${user.displayName}`} description="Accede a los módulos autorizados para gestionar ventas, inventario y abastecimiento."/><div className="grid gap-5 xl:grid-cols-2">{groups.map((group)=><section key={group.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5"><h2 className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{group.label}</h2><div className="mt-3 grid gap-2 sm:grid-cols-2">{group.items.map((item)=><Link key={item.href} href={item.href} className="group flex items-center gap-3 rounded-lg border border-slate-200 p-3 transition hover:border-emerald-300 hover:bg-emerald-50/50"><span className="flex size-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-emerald-100 group-hover:text-emerald-700"><Icon name={item.icon} className="size-5"/></span><span className="font-semibold text-slate-800">{item.label}</span></Link>)}</div></section>)}</div><div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"><strong>Punto de acceso operativo.</strong> Esta pantalla no calcula métricas ni reemplaza los reportes de cada módulo.</div></section>}
