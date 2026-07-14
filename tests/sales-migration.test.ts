@@ -5,6 +5,15 @@ import { describe, expect, it } from "vitest";
 const migration = readFileSync(path.resolve("supabase/migrations/202607130005_customers_orders_payments.sql"), "utf8");
 const sql = readFileSync(path.resolve("supabase/tests/rls_sales.sql"), "utf8");
 
+function canonicalSignature(name: string, parameters: string) {
+  const types = parameters.trim() === "" ? [] : parameters.split(",").map((parameter) => {
+    const declaration = parameter.replace(/\s+default\s+[\s\S]*$/i, "").trim();
+    const parts = declaration.split(/\s+/);
+    return parts.length === 1 ? parts[0] : parts.slice(1).join(" ");
+  });
+  return `${name}(${types.join(",")})`.replace(/\s+/g, "");
+}
+
 describe("migración de ventas", () => {
   it("es una única transacción y reemplaza movement_type de forma atómica", () => {
     expect(migration.match(/^begin;/gim)).toHaveLength(1);
@@ -50,6 +59,62 @@ describe("migración de ventas", () => {
     expect(constraint).toContain("nullif(btrim(reason), '') is not null");
     expect(constraint).not.toContain("'purchase_entry'");
     expect(constraint).not.toContain("'sale_reservation'");
+  });
+
+  it("aplica permisos únicamente después de crear las firmas públicas finales", () => {
+    const createPattern = /create(?: or replace)? function\s+((?:public|private)\.[a-z_][a-z0-9_]*)\s*\(([\s\S]*?)\)\s*returns\b/gi;
+    const creations = [...migration.matchAll(createPattern)].map((match) => {
+      const [, name, parameters] = match;
+      if (name === undefined || parameters === undefined || match.index === undefined) {
+        throw new Error("No se pudo interpretar una firma creada en la migración.");
+      }
+      return { signature: canonicalSignature(name, parameters), index: match.index };
+    });
+    const grantPattern = /grant execute on function([\s\S]*?)to authenticated;/gi;
+    const grants = [...migration.matchAll(grantPattern)];
+    const revokePattern = /revoke all on function([\s\S]*?)from public,anon(?:,authenticated)?;/gi;
+    const revokes = [...migration.matchAll(revokePattern)];
+
+    expect(grants).toHaveLength(1);
+    const grant = grants[0];
+    if (grant === undefined || grant[1] === undefined || grant.index === undefined) {
+      throw new Error("No se encontró el bloque final de permisos.");
+    }
+    const grantBody = grant[1];
+    expect(grantBody).not.toContain("private.");
+    const grantedSignatures = grantBody.match(/public\.[a-z_][a-z0-9_]*\([^)]*\)/gi) ?? [];
+    expect(grantedSignatures).not.toHaveLength(0);
+    for (const granted of grantedSignatures) {
+      const signature = granted.replace(/\s+/g, "");
+      expect(creations.some((creation) => creation.signature === signature && creation.index < grant.index)).toBe(true);
+    }
+    expect(revokes).toHaveLength(2);
+    for (const revoke of revokes) {
+      if (revoke[1] === undefined || revoke.index === undefined) {
+        throw new Error("No se pudo interpretar un bloque final de revocación.");
+      }
+      const revokedSignatures = revoke[1].match(/(?:public|private)\.[a-z_][a-z0-9_]*\([^)]*\)/gi) ?? [];
+      expect(revokedSignatures).not.toHaveLength(0);
+      for (const revoked of revokedSignatures) {
+        const signature = revoked.replace(/\s+/g, "");
+        expect(creations.some((creation) => creation.signature === signature && creation.index < revoke.index)).toBe(true);
+      }
+    }
+
+    const permissionSection = migration.indexOf("-- Los permisos se aplican solo después de crear todas las firmas finales.");
+    const duplicateCreate = migration.indexOf("create or replace function public.check_customer_duplicate_candidates(");
+    const duplicateRevoke = migration.indexOf("public.check_customer_duplicate_candidates(text,text,text,text,text)", permissionSection);
+    const duplicateGrant = migration.indexOf(
+      "public.check_customer_duplicate_candidates(text,text,text,text,text)",
+      duplicateRevoke + 1,
+    );
+    expect(duplicateCreate).toBeLessThan(duplicateRevoke);
+    expect(duplicateRevoke).toBeLessThan(duplicateGrant);
+    expect(migration.slice(permissionSection)).not.toContain("public.return_order_item(uuid,numeric,text,text)");
+    expect(migration.slice(permissionSection)).not.toContain("public.refund_payment(uuid,text)");
+    expect(migration).not.toMatch(/alter function/i);
+    expect(migration).not.toMatch(/drop function if exists/i);
+    expect(migration.trim().endsWith("commit;")).toBe(true);
   });
 
   it("crea tablas con RLS y sin DELETE", () => {

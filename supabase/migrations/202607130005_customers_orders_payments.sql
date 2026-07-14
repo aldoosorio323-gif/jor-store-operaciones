@@ -339,7 +339,6 @@ begin
   perform private.finish_inventory_command(p_idempotency_key,final_result); return final_result;
 end; $$;
 
-drop function if exists public.return_order_item(uuid,numeric,text,text);
 create function public.return_order_item(
   p_order_item_id uuid,p_location_id uuid,p_quantity numeric,p_reason text,p_idempotency_key text
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -372,7 +371,6 @@ begin
   perform private.finish_inventory_command(p_idempotency_key,result); return result;
 end; $$;
 
-drop function if exists public.refund_payment(uuid,text);
 create function public.refund_payment(
   p_payment_id uuid,p_amount numeric,p_reason text,p_idempotency_key text
 ) returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -411,7 +409,6 @@ begin
   perform private.finish_inventory_command(p_idempotency_key,result); return result;
 end; $$;
 
-drop function if exists public.admin_financial_reconciliation();
 create function public.admin_financial_reconciliation()
 returns table(issue_type text,order_id uuid,payment_id uuid,expected_value numeric,actual_value numeric)
 language plpgsql security definer set search_path = '' as $$
@@ -475,12 +472,6 @@ create policy customers_update_active_operator on public.customers for update to
   using ((select public.current_user_is_active()) and (select public.current_user_role())='operator' and is_active)
   with check ((select public.current_user_is_active()) and (select public.current_user_role())='operator' and is_active);
 
-revoke all on function public.check_customer_duplicate_candidates(text,text,text,text,text),
-  public.return_order_item(uuid,uuid,numeric,text,text),public.refund_payment(uuid,numeric,text,text),
-  public.admin_financial_reconciliation() from public,anon;
-grant execute on function public.check_customer_duplicate_candidates(text,text,text,text,text),
-  public.return_order_item(uuid,uuid,numeric,text,text),public.refund_payment(uuid,numeric,text,text),
-  public.admin_financial_reconciliation() to authenticated;
 -- Reemplaza las dos funciones de Etapa 3 que dependían del enum anterior.
 create function private.apply_inventory_movement(
   p_variant_id uuid,p_warehouse_id uuid,p_location_id uuid,p_movement_type public.movement_type,
@@ -566,11 +557,6 @@ begin
       jsonb_build_object('movement_type',p_movement_type,'quantity_delta',signed_quantity));
   perform private.finish_inventory_command(p_idempotency_key,movement_result); return movement_result;
 end; $$;
-
-revoke all on function private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type,numeric,numeric,text,uuid,uuid,uuid,uuid,uuid,text,jsonb)
-  from public,anon,authenticated;
-revoke all on function public.adjust_inventory(uuid,uuid,public.movement_type,numeric,numeric,text,text) from public,anon;
-grant execute on function public.adjust_inventory(uuid,uuid,public.movement_type,numeric,numeric,text,text) to authenticated;
 
 create or replace function private.obsolete_cancel_order(p_order_id uuid,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -740,10 +726,6 @@ grant insert(customer_id,ordered_at,notes) on public.orders to authenticated; gr
 grant insert(order_id,line_number,variant_id,warehouse_id,location_id,quantity,unit_price,discount_amount,tax_amount) on public.order_items to authenticated;
 grant update(line_number,variant_id,warehouse_id,location_id,quantity,unit_price,discount_amount,tax_amount) on public.order_items to authenticated;
 grant insert(order_id,amount,method,reference,notes) on public.payments to authenticated; grant update(amount,method,reference,notes) on public.payments to authenticated;
-
-revoke all on function public.remove_order_item(uuid),public.submit_order(uuid),public.return_order_to_draft(uuid),public.confirm_order(uuid,text),public.cancel_order(uuid,text),public.dispatch_order_item(uuid,numeric,text),public.dispatch_order(uuid,text),public.deliver_order(uuid),public.return_order_item(uuid,numeric,text,text),public.confirm_payment(uuid,timestamptz,text),public.cancel_payment(uuid),public.refund_payment(uuid,text),public.admin_financial_reconciliation() from public,anon;
-grant execute on function public.remove_order_item(uuid),public.submit_order(uuid),public.return_order_to_draft(uuid),public.confirm_order(uuid,text),public.cancel_order(uuid,text),public.dispatch_order_item(uuid,numeric,text),public.dispatch_order(uuid,text),public.deliver_order(uuid),public.return_order_item(uuid,numeric,text,text),public.confirm_payment(uuid,timestamptz,text),public.cancel_payment(uuid),public.refund_payment(uuid,text),public.admin_financial_reconciliation() to authenticated;
-revoke all on function private.prepare_customer(),private.prepare_order(),private.prepare_order_item(),private.guard_order_item_delete(),private.recalculate_order_totals(uuid),private.after_order_item_change(),private.prepare_payment(),private.audit_sales_change(),private.audit_order_item_change(),private.apply_sales_inventory_movement(uuid,uuid,public.movement_type,numeric,numeric,text,text,uuid),private.recalculate_order_payment(uuid) from public,anon,authenticated;
 
 create or replace function private.prepare_order()
 returns trigger language plpgsql security definer set search_path = '' as $$
@@ -1140,7 +1122,57 @@ drop function public.return_order_item(uuid,numeric,text,text);
 drop function public.refund_payment(uuid,text);
 drop function private.obsolete_cancel_order(uuid,text);
 drop function private.obsolete_financial_reconciliation();
-revoke all on function private.apply_sales_return_movement(uuid,uuid,uuid,numeric,text,text)
+
+-- Los permisos se aplican solo después de crear todas las firmas finales.
+revoke all on function
+  public.remove_order_item(uuid),
+  public.submit_order(uuid),
+  public.return_order_to_draft(uuid),
+  public.confirm_order(uuid,text),
+  public.cancel_order(uuid,text),
+  public.dispatch_order_item(uuid,numeric,text),
+  public.dispatch_order(uuid,text),
+  public.deliver_order(uuid),
+  public.return_order_item(uuid,uuid,numeric,text,text),
+  public.confirm_payment(uuid,timestamptz,text),
+  public.cancel_payment(uuid),
+  public.refund_payment(uuid,numeric,text,text),
+  public.admin_financial_reconciliation(),
+  public.check_customer_duplicate_candidates(text,text,text,text,text),
+  public.adjust_inventory(uuid,uuid,public.movement_type,numeric,numeric,text,text)
+from public,anon;
+grant execute on function
+  public.remove_order_item(uuid),
+  public.submit_order(uuid),
+  public.return_order_to_draft(uuid),
+  public.confirm_order(uuid,text),
+  public.cancel_order(uuid,text),
+  public.dispatch_order_item(uuid,numeric,text),
+  public.dispatch_order(uuid,text),
+  public.deliver_order(uuid),
+  public.return_order_item(uuid,uuid,numeric,text,text),
+  public.confirm_payment(uuid,timestamptz,text),
+  public.cancel_payment(uuid),
+  public.refund_payment(uuid,numeric,text,text),
+  public.admin_financial_reconciliation(),
+  public.check_customer_duplicate_candidates(text,text,text,text,text),
+  public.adjust_inventory(uuid,uuid,public.movement_type,numeric,numeric,text,text)
+to authenticated;
+
+revoke all on function
+  private.prepare_customer(),
+  private.prepare_order(),
+  private.prepare_order_item(),
+  private.guard_order_item_delete(),
+  private.recalculate_order_totals(uuid),
+  private.after_order_item_change(),
+  private.prepare_payment(),
+  private.audit_sales_change(),
+  private.audit_order_item_change(),
+  private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type,numeric,numeric,text,uuid,uuid,uuid,uuid,uuid,text,jsonb),
+  private.apply_sales_inventory_movement(uuid,uuid,public.movement_type,numeric,numeric,text,text,uuid),
+  private.apply_sales_return_movement(uuid,uuid,uuid,numeric,text,text),
+  private.recalculate_order_payment(uuid)
   from public,anon,authenticated;
 
 drop function private.apply_inventory_movement(uuid,uuid,uuid,public.movement_type_stage_three,numeric,numeric,text,uuid,uuid,uuid,uuid,uuid,text,jsonb);
