@@ -278,18 +278,18 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["customers"]["Insert"]>; Relationships: [];
       };
       orders: {
-        Row: { id:string; order_number:string; customer_id:string; status:OrderStatus; payment_status:OrderPaymentStatus; ordered_at:string; submitted_at:string|null; confirmed_at:string|null; shipped_at:string|null; delivered_at:string|null; cancelled_at:string|null; submitted_by:string|null; confirmed_by:string|null; shipped_by:string|null; delivered_by:string|null; cancelled_by:string|null; currency_code:"PEN"; subtotal:number; discount_amount:number; tax_amount:number; total_amount:number; paid_amount:number; notes:string|null; created_at:string; updated_at:string; created_by:string; updated_by:string };
-        Insert: { id?:string; order_number?:string; customer_id:string; status?:OrderStatus; payment_status?:OrderPaymentStatus; ordered_at?:string; notes?:string|null; currency_code?:"PEN"; subtotal?:number; discount_amount?:number; tax_amount?:number; total_amount?:number; paid_amount?:number; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
+        Row: { id:string; order_number:string; customer_id:string; status:OrderStatus; payment_status:OrderPaymentStatus; ordered_at:string; submitted_at:string|null; confirmed_at:string|null; shipped_at:string|null; delivered_at:string|null; cancelled_at:string|null; submitted_by:string|null; confirmed_by:string|null; shipped_by:string|null; delivered_by:string|null; cancelled_by:string|null; currency_code:"PEN"; subtotal:number; discount_amount:number; tax_amount:number; total_amount:number; paid_amount:number; balance_due:number; notes:string|null; created_at:string; updated_at:string; created_by:string; updated_by:string };
+        Insert: { id?:string; order_number?:string; customer_id:string; status?:OrderStatus; payment_status?:OrderPaymentStatus; ordered_at?:string; notes?:string|null; currency_code?:"PEN"; subtotal?:number; discount_amount?:number; tax_amount?:number; total_amount?:number; paid_amount?:number; balance_due?:number; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
         Update: Partial<Database["public"]["Tables"]["orders"]["Insert"]>; Relationships: [];
       };
       order_items: {
-        Row: { id:string; order_id:string; line_number:number; variant_id:string; warehouse_id:string; location_id:string; balance_id:string; quantity:number; reserved_quantity:number; dispatched_quantity:number; returned_quantity:number; unit_price:number; discount_amount:number; tax_amount:number; line_subtotal:number; line_total:number; created_at:string; updated_at:string; created_by:string; updated_by:string };
-        Insert: { id?:string; order_id:string; line_number:number; variant_id:string; warehouse_id:string; location_id:string; balance_id?:string; quantity:number; reserved_quantity?:number; dispatched_quantity?:number; returned_quantity?:number; unit_price:number; discount_amount?:number; tax_amount?:number; line_subtotal?:number; line_total?:number; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
+        Row: { id:string; order_id:string; line_number:number; variant_id:string; warehouse_id:string; location_id:string; balance_id:string; quantity:number; reserved_quantity:number; dispatched_quantity:number; returned_quantity:number; unit_cost_snapshot:number; unit_price:number; discount_amount:number; tax_amount:number; line_subtotal:number; line_total:number; created_at:string; updated_at:string; created_by:string; updated_by:string };
+        Insert: { id?:string; order_id:string; line_number:number; variant_id:string; warehouse_id:string; location_id:string; balance_id?:string; quantity:number; reserved_quantity?:number; dispatched_quantity?:number; returned_quantity?:number; unit_cost_snapshot?:number; unit_price:number; discount_amount?:number; tax_amount?:number; line_subtotal?:number; line_total?:number; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
         Update: Partial<Database["public"]["Tables"]["order_items"]["Insert"]>; Relationships: [];
       };
       payments: {
-        Row: { id:string; payment_number:string; order_id:string; amount:number; method:PaymentMethod; status:PaymentStatus; paid_at:string|null; reference:string|null; notes:string|null; confirmed_at:string|null; confirmed_by:string|null; cancelled_at:string|null; cancelled_by:string|null; refunded_at:string|null; refunded_by:string|null; created_at:string; updated_at:string; created_by:string; updated_by:string };
-        Insert: { id?:string; payment_number?:string; order_id:string; amount:number; method:PaymentMethod; status?:PaymentStatus; paid_at?:string|null; reference?:string|null; notes?:string|null; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
+        Row: { id:string; payment_number:string; order_id:string; amount:number; method:PaymentMethod; status:PaymentStatus; refunded_payment_id:string|null; paid_at:string|null; reference:string|null; notes:string|null; confirmed_at:string|null; confirmed_by:string|null; cancelled_at:string|null; cancelled_by:string|null; refunded_at:string|null; refunded_by:string|null; created_at:string; updated_at:string; created_by:string; updated_by:string };
+        Insert: { id?:string; payment_number?:string; order_id:string; amount:number; method:PaymentMethod; status?:PaymentStatus; refunded_payment_id?:string|null; paid_at?:string|null; reference?:string|null; notes?:string|null; created_at?:string; updated_at?:string; created_by?:string; updated_by?:string };
         Update: Partial<Database["public"]["Tables"]["payments"]["Insert"]>; Relationships: [];
       };
     };
@@ -368,11 +368,12 @@ export type Database = {
       dispatch_order_item: { Args:{p_order_item_id:string;p_quantity:number;p_idempotency_key:string}; Returns:Json };
       dispatch_order: { Args:{p_order_id:string;p_idempotency_key:string}; Returns:Json };
       deliver_order: { Args:{p_order_id:string}; Returns:string };
-      return_order_item: { Args:{p_order_item_id:string;p_quantity:number;p_reason:string;p_idempotency_key:string}; Returns:Json };
+      return_order_item: { Args:{p_order_item_id:string;p_location_id:string;p_quantity:number;p_reason:string;p_idempotency_key:string}; Returns:Json };
       confirm_payment: { Args:{p_payment_id:string;p_paid_at:string|null;p_idempotency_key:string}; Returns:Json };
       cancel_payment: { Args:{p_payment_id:string}; Returns:string };
-      refund_payment: { Args:{p_payment_id:string;p_idempotency_key:string}; Returns:Json };
-      admin_financial_reconciliation: { Args:Record<string,never>; Returns:Array<{issue_type:string;order_id:string;expected_paid:number;actual_paid:number}> };
+      refund_payment: { Args:{p_payment_id:string;p_amount:number;p_reason:string;p_idempotency_key:string}; Returns:Json };
+      check_customer_duplicate_candidates: { Args:{p_document_type:string|null;p_document_number:string|null;p_email:string|null;p_phone:string|null;p_full_name:string}; Returns:Array<{document_match:boolean;email_match:boolean;phone_match:boolean;name_match:boolean}> };
+      admin_financial_reconciliation: { Args:Record<string,never>; Returns:Array<{issue_type:string;order_id:string;payment_id:string|null;expected_value:number|null;actual_value:number|null}> };
     };
     Enums: {
       location_type: LocationType;
