@@ -19,9 +19,17 @@ describe("validaciones de ventas", () => {
     expect(orderItemSchema.safeParse({ orderId:id, lineNumber:1, variantId:id, warehouseId:id, locationId:id, quantity:0, unitPrice:-1, discountAmount:0, taxAmount:0 }).success).toBe(false);
   });
 
+  it("limita el descuento al subtotal antes de impuestos", () => {
+    const base={orderId:id,lineNumber:1,variantId:id,warehouseId:id,locationId:id,quantity:2,unitPrice:5,taxAmount:0};
+    expect(orderItemSchema.safeParse({...base,discountAmount:0}).success).toBe(true);
+    expect(orderItemSchema.safeParse({...base,discountAmount:10}).success).toBe(true);
+    expect(orderItemSchema.safeParse({...base,discountAmount:11,taxAmount:2}).success).toBe(false);
+  });
+
   it("valida métodos e importe", () => {
     expect(paymentSchema.safeParse({ orderId:id, amount:1, method:"cash", reference:"", notes:"" }).success).toBe(true);
     expect(paymentSchema.safeParse({ orderId:id, amount:0, method:"cash", reference:"", notes:"" }).success).toBe(false);
+    expect(paymentSchema.safeParse({ orderId:id, amount:1.001, method:"cash", reference:"", notes:"" }).success).toBe(false);
   });
 
   it("exige ubicación y razón para devolver", () => {

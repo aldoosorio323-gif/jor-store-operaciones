@@ -24,6 +24,8 @@ describe("fronteras de ventas", () => {
     expect(forms).toContain("¿Registrar la devolución en la ubicación seleccionada?");
     expect(forms).toContain("¿Registrar este reembolso sin modificar el pago original?");
     expect(forms).toContain('aria-label="Ubicación de devolución"');
+    expect(forms).toContain("Descuento (máximo: subtotal)");
+    expect(actions).toContain("El descuento no puede superar el subtotal de la línea.");
   });
 
   it("no usa service role y conserva la navegación", () => {

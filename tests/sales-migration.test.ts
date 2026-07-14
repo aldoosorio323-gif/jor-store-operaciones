@@ -47,6 +47,35 @@ describe("migración de ventas", () => {
     expect(migration.lastIndexOf("drop function public.return_order_item(uuid,numeric,text,text)")).toBeGreaterThan(migration.lastIndexOf("create or replace function public.return_order_item(p_order_item_id uuid,p_quantity numeric"));
   });
 
+  it("calcula el despacho parcial con cantidades ya persistidas", () => {
+    const dispatch = migration.slice(migration.indexOf("function public.dispatch_order_item"), migration.indexOf("function public.dispatch_order(", migration.indexOf("function public.dispatch_order_item")));
+    expect(dispatch).toContain("dispatched_quantity<quantity");
+    expect(dispatch).not.toContain("dispatched_quantity+p_quantity<quantity");
+    expect(dispatch).toContain("then next_status:='preparing'; else next_status:='shipped'");
+    expect(dispatch).toContain("then now() else null");
+    expect(dispatch).toContain("then actor else null");
+    expect(dispatch).not.toContain("public.payments");
+  });
+
+  it("valida pagos pending contra estado y saldo bloqueado", () => {
+    const prepare = migration.slice(migration.lastIndexOf("function private.prepare_payment"), migration.indexOf("function private.recalculate_order_payment", migration.lastIndexOf("function private.prepare_payment")));
+    expect(prepare).toContain("select status,balance_due into order_state,available_balance");
+    expect(prepare).toContain("for update");
+    expect(prepare).toContain("order_state in ('cancelled','returned')");
+    expect(prepare).toContain("new.amount>available_balance");
+    expect(prepare).toContain("new.refunded_payment_id is null and new.status='pending'");
+    const confirm = migration.slice(migration.indexOf("function public.confirm_payment"), migration.indexOf("function public.cancel_payment"));
+    expect(confirm).toContain("select balance_due into available_balance");
+    expect(confirm).toContain("for update");
+    expect(confirm).toContain("payment.amount>available_balance");
+  });
+
+  it("limita el descuento al subtotal antes de impuestos", () => {
+    expect(migration).toContain("constraint order_items_discount_within_subtotal check (discount_amount <= line_subtotal)");
+    expect(migration).toContain("if new.discount_amount>expected_subtotal then");
+    expect(migration).toContain("El descuento no puede superar el subtotal de la línea.");
+  });
+
   it("modela reembolsos inmutables y saldo derivado", () => {
     expect(migration).toContain("refunded_payment_id uuid");
     expect(migration).toContain("payments_refund_same_order_fkey");
@@ -71,7 +100,7 @@ describe("migración de ventas", () => {
   });
 
   it("mantiene pruebas SQL ficticias, transaccionales y de concurrencia documentada", () => {
-    for (const scenario of ["cancel_after_dispatch_rejected", "paid_cancel_rejected", "partial_refund", "refund_overflow_rejected", "operator_inactive_customer_denied", "confirm_order_concurrency_two_connections"]) {
+    for (const scenario of ["single_line_partial_preparing", "single_line_complete_shipped", "two_lines_partial_preparing", "two_lines_complete_shipped", "dispatch_retry_idempotent", "pending_over_balance_rejected", "pending_edit_over_balance_rejected", "pending_cancelled_order_rejected", "pending_returned_order_rejected", "pending_equal_balance_allowed", "pending_partial_allowed", "pending_concurrency_overpayment_rejected", "pending_payment_concurrency_two_connections", "discount_above_subtotal_rejected", "discount_edit_rejected", "confirm_order_concurrency_two_connections"]) {
       expect(sql).toContain(scenario);
     }
     expect(sql.toLowerCase()).toContain("rollback;");

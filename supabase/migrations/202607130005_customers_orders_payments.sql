@@ -140,6 +140,7 @@ create table public.order_items (
   constraint order_items_quantity_positive check (quantity > 0),
   constraint order_items_quantity_ranges check (reserved_quantity >= 0 and dispatched_quantity >= 0 and returned_quantity >= 0 and reserved_quantity + dispatched_quantity <= quantity and returned_quantity <= dispatched_quantity),
   constraint order_items_amounts_nonnegative check (unit_cost_snapshot >= 0 and unit_price >= 0 and discount_amount >= 0 and tax_amount >= 0 and line_subtotal >= 0 and line_total >= 0),
+  constraint order_items_discount_within_subtotal check (discount_amount <= line_subtotal),
   constraint order_items_total_equation check (line_total = line_subtotal - discount_amount + tax_amount),
   constraint order_items_location_fkey foreign key (warehouse_id, location_id) references public.warehouse_locations(warehouse_id,id) on delete restrict,
   constraint order_items_balance_identity_fkey foreign key (balance_id,variant_id,warehouse_id,location_id) references public.inventory_balances(id,variant_id,warehouse_id,location_id) on delete restrict,
@@ -601,8 +602,12 @@ begin
   if p_quantity>item.reserved_quantity then raise exception 'La cantidad supera la reserva disponible.' using errcode='23514'; end if;
   result:=private.apply_sales_inventory_movement(item.order_id,item.id,'sale_dispatch',-p_quantity,-p_quantity,'Despacho de pedido',p_idempotency_key);
   update public.order_items set reserved_quantity=reserved_quantity-p_quantity,dispatched_quantity=dispatched_quantity+p_quantity where id=item.id;
-  if not exists(select 1 from public.order_items where order_id=item.order_id and dispatched_quantity+p_quantity<quantity and id=item.id union all select 1 from public.order_items where order_id=item.order_id and id<>item.id and dispatched_quantity<quantity) then next_status:='shipped'; else next_status:='preparing'; end if;
-  update public.orders set status=next_status,shipped_at=case when next_status='shipped' then now() else shipped_at end,shipped_by=case when next_status='shipped' then actor else shipped_by end,updated_at=now(),updated_by=actor where id=item.order_id;
+  if exists(select 1 from public.order_items where order_id=item.order_id and dispatched_quantity<quantity)
+    then next_status:='preparing'; else next_status:='shipped'; end if;
+  update public.orders set status=next_status,
+    shipped_at=case when next_status='shipped' then now() else null end,
+    shipped_by=case when next_status='shipped' then actor else null end,
+    updated_at=now(),updated_by=actor where id=item.order_id;
   insert into public.audit_logs(actor_user_id,action,entity_type,entity_id,metadata) values(actor,'order_item_dispatched','order',item.order_id,jsonb_build_object('quantity',p_quantity,'new_status',next_status));
   result:=result||jsonb_build_object('order_id',item.order_id,'status',next_status); perform private.finish_inventory_command(p_idempotency_key,result); return result;
 end; $$;
@@ -638,12 +643,16 @@ begin replay:=private.start_inventory_command(p_idempotency_key,'return_order_it
 
 create or replace function public.confirm_payment(p_payment_id uuid,p_paid_at timestamptz,p_idempotency_key text)
 returns jsonb language plpgsql security definer set search_path = '' as $$
-declare actor uuid:=private.assert_inventory_operator(false); replay jsonb; payment public.payments%rowtype; result jsonb;
+declare actor uuid:=private.assert_inventory_operator(false); replay jsonb; payment public.payments%rowtype;
+  available_balance numeric(14,2); result jsonb;
 begin replay:=private.start_inventory_command(p_idempotency_key,'confirm_payment',jsonb_build_object('payment_id',p_payment_id,'paid_at',p_paid_at)); if replay is not null then return replay; end if;
   select * into payment from public.payments where id=p_payment_id for update; if not found then raise exception 'Pago no encontrado.' using errcode='P0002'; end if; if payment.status<>'pending' then raise exception 'Solo un pago pendiente puede confirmarse.' using errcode='23514'; end if;
-  perform 1 from public.orders where id=payment.order_id and status not in ('cancelled','returned') for update;
+  select balance_due into available_balance from public.orders
+    where id=payment.order_id and status not in ('cancelled','returned') for update;
   if not found then raise exception 'El estado del pedido no admite pagos.' using errcode='23514'; end if;
-  if (select paid_amount from public.orders where id=payment.order_id)+payment.amount>(select total_amount from public.orders where id=payment.order_id) then raise exception 'El pago supera el saldo del pedido.' using errcode='23514'; end if;
+  if available_balance<=0 or payment.amount>available_balance then
+    raise exception 'El pago supera el saldo pendiente del pedido.' using errcode='23514';
+  end if;
   update public.payments set status='paid',paid_at=coalesce(p_paid_at,now()),confirmed_at=now(),confirmed_by=actor,updated_at=now(),updated_by=actor where id=p_payment_id;
   perform private.recalculate_order_payment(payment.order_id);
   insert into public.audit_logs(actor_user_id,action,entity_type,entity_id,metadata) values(actor,'payment_confirmed','payment',p_payment_id,jsonb_build_object('status','paid','amount',payment.amount)); result:=jsonb_build_object('payment_id',p_payment_id,'order_id',payment.order_id,'status','paid'); perform private.finish_inventory_command(p_idempotency_key,result); return result; end; $$;
@@ -771,6 +780,9 @@ begin
   if new.balance_id is null then raise exception 'No existe un balance para la ubicación seleccionada.' using errcode='23514'; end if;
   new.reserved_quantity:=0; new.dispatched_quantity:=0; new.returned_quantity:=0;
   expected_subtotal:=round(new.quantity*new.unit_price,2); new.line_subtotal:=expected_subtotal;
+  if new.discount_amount>expected_subtotal then
+    raise exception 'El descuento no puede superar el subtotal de la línea.' using errcode='23514';
+  end if;
   new.line_total:=round(expected_subtotal-new.discount_amount+new.tax_amount,2);
   return new;
 end; $$;
@@ -913,12 +925,13 @@ end; $$;
 
 create or replace function private.prepare_payment()
 returns trigger language plpgsql security definer set search_path = '' as $$
-declare order_total numeric(14,2); refund_mode boolean;
+declare order_state public.order_status; available_balance numeric(14,2); refund_mode boolean;
 begin
   new.reference:=upper(nullif(btrim(new.reference),''));
   new.notes:=nullif(btrim(new.notes),'');
-  select total_amount into order_total from public.orders where id=new.order_id for share;
-  if order_total is null then raise exception 'Pedido no encontrado.' using errcode='P0002'; end if;
+  select status,balance_due into order_state,available_balance
+    from public.orders where id=new.order_id for update;
+  if not found then raise exception 'Pedido no encontrado.' using errcode='P0002'; end if;
   if tg_op='INSERT' then
     new.payment_number := 'PAG-' || lpad(nextval('private.payment_number_seq')::text, 7, '0');
     refund_mode := coalesce(current_setting('app.sales_refund',true),'')='on';
@@ -938,6 +951,20 @@ begin
     end if;
     if new.order_id is distinct from old.order_id then
       raise exception 'No se puede cambiar el pedido del pago.' using errcode='23514';
+    end if;
+  end if;
+  if new.refunded_payment_id is null and new.status='pending' then
+    if order_state in ('cancelled','returned') then
+      raise exception 'El estado del pedido no admite pagos pendientes.' using errcode='23514';
+    end if;
+    if new.amount is null or new.amount<=0 then
+      raise exception 'El importe del pago debe ser mayor que cero.' using errcode='22023';
+    end if;
+    if available_balance<=0 then
+      raise exception 'El pedido no tiene saldo pendiente.' using errcode='23514';
+    end if;
+    if new.amount>available_balance then
+      raise exception 'El importe del pago supera el saldo pendiente del pedido.' using errcode='23514';
     end if;
   end if;
   return new;
